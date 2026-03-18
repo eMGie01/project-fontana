@@ -43,10 +43,10 @@ typedef struct {
 /**
  * @brief   Initialization of HX711 driver
  *
- * @param   dev; Pointer to driver's configuration
- * @param   gpio_dout; gpio number of dout signal
- * @param   gpio_sck; gpio number of sck signal
- * @param   mode; ...
+ * @param   dev Pointer to driver's configuration
+ * @param   gpio_dout gpio number of dout signal
+ * @param   gpio_sck gpio number of sck signal
+ * @param   mode setting of next aquisition mode
  *
  * @return
  *     - HX711_OK success
@@ -55,9 +55,9 @@ typedef struct {
 hx711_status_t hx711_init(hx711_t * dev, gpio_num_t gpio_dout, gpio_num_t gpio_sck, hx711_mode_t mode);
 
 /**
- * @brief   Check wheter driver's data is ready to pull
+ * @brief   Check wheter HX711 data is ready to pull
  *
- * @param   dev; Pointer to driver's configuration
+ * @param   dev Pointer to driver's configuration
  *
  * @return
  *     - True
@@ -68,62 +68,16 @@ bool hx711_is_ready(const hx711_t *dev);
 /**
  * @brief   Read measured value from ADC
  *
- * @param   dev; Pointer to driver's configuration
- * @param   value; Pointer to variable for measurement
+ * @param   dev Pointer to driver's configuration
+ * @param   value Pointer to variable for measurement
  *
  * @return
  *     - HX711_OK success
  *     - HX711_ERR_ARG Parameter error
+ *     - HX711_ERR_NOT_READY Data not ready to pull
  */
 hx711_status_t hx711_read_raw(hx711_t * dev, int32_t * value);
 
-/**
- * @brief   Set HX711 offset
- *
- * @param   dev; Pointer to driver's configuration
- * @param   offset; driver's offset value
- *
- * @return
- *     - HX711_OK success
- *     - HX711_ERR_ARG Parameter error
- */
-hx711_status_t hx711_set_offset(hx711_t * dev, int32_t offset);
-
-/**
- * @brief   Read offset value
- *
- * @param   dev; Pointer to driver's configuration
- * @param   value; Pointer to variable
- *
- * @return
- *     - HX711_OK success
- *     - HX711_ERR_ARG Parameter error
- */
-hx711_status_t hx711_get_offset(const hx711_t * dev, int32_t * value);
-
-/**
- * @brief   Set HX711 scale value
- *
- * @param   dev; Pointer to driver's configuration
- * @param   scale; driver's scale value
- *
- * @return
- *     - HX711_OK success
- *     - HX711_ERR_ARG Parameter error
- */
-hx711_status_t hx711_set_scale(hx711_t * dev, int32_t scale);
-
-/**
- * @brief   Read scale value
- *
- * @param   dev; Pointer to driver's configuration
- * @param   value; Pointer to variable
- *
- * @return
- *     - HX711_OK success
- *     - HX711_ERR_ARG Parameter error
- */
-hx711_status_t hx711_get_scale(const hx711_t * dev, int32_t * value);
 
 #ifdef __cplusplus
 }
