@@ -2,7 +2,6 @@
 #define CIRCULAR_BUFFER_HPP
 
 #include <cstddef>
-#include "esp_log.h"
 
 template<typename T, size_t N>
 class CircularBuffer {
