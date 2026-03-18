@@ -36,8 +36,6 @@ typedef struct {
     gpio_num_t gpio_dout;
     gpio_num_t gpio_sck;
     hx711_mode_t next_mode;
-    int32_t offset;
-    int32_t scale;
 } hx711_t;
 
 /**

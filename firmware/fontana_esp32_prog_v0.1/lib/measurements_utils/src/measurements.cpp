@@ -6,7 +6,7 @@ static constexpr uint8_t DEFAULT_IIR_SHIFT = 1;
 
 Measurement::Measurement() : 
     offset_raw_(0),
-    scale_x1000_(0),
+    scale_(0),
     filtered_raw_(0),
     iir_shift_(DEFAULT_IIR_SHIFT),
     first_sample_(true),
@@ -33,8 +33,8 @@ void Measurement::setOffsetRaw(int32_t offset) {
 }
 
 
-void Measurement::setScaleX1000(int32_t scale) {
-    scale_x1000_ = scale;
+void Measurement::setCountsPerMmHg(int32_t scale) {
+    scale_ = scale;
 }
 
 
@@ -77,13 +77,15 @@ void Measurement::pushRaw(int32_t raw) {
 
 
 bool Measurement::getFilteredValueX1000(int64_t& value) const {
-    value = filtered_raw_ * scale_x1000_;
+    if (scale_ == 0) return false;
+    value = 1000LL * filtered_raw_ / scale_;
     return true;
 }
 
 
 bool Measurement::getAvgValueX1000(int64_t& value) const {
     if (!avg_value_ready_) return false;
-    value = avg_raw_ * scale_x1000_;
+    if (scale_ == 0) return false;
+    value = 1000LL * avg_raw_ / scale_;
     return true;
 }

@@ -11,7 +11,7 @@ class Measurement {
         void reset();
 
         void setOffsetRaw(int32_t offset);
-        void setScaleX1000(int32_t scale);
+        void setCountsPerMmHg(int32_t scale);
         void setIirShift(uint8_t shift);
         void setAvgWindowSize(uint16_t window_size);
 
@@ -22,7 +22,7 @@ class Measurement {
 
     private:
         int32_t offset_raw_;
-        int32_t scale_x1000_;
+        int32_t scale_;
         
         int64_t filtered_raw_;
         uint8_t iir_shift_;

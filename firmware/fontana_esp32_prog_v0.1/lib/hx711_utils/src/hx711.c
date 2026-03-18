@@ -9,7 +9,7 @@ static const char * TAG = "HX711";
 
 
 hx711_status_t hx711_init(hx711_t * dev, gpio_num_t gpio_dout, gpio_num_t gpio_sck, hx711_mode_t mode) {
-    ESP_LOGI(TAG, "init process started");
+    ESP_LOGD(TAG, "init process started");
     esp_err_t res;
 
     if (dev == NULL) {
@@ -37,7 +37,7 @@ hx711_status_t hx711_init(hx711_t * dev, gpio_num_t gpio_dout, gpio_num_t gpio_s
     dev->next_mode = mode;
 
     /* set dout as input */
-    ESP_LOGI(TAG, "setting %d pin as input", (int)gpio_dout);
+    ESP_LOGD(TAG, "setting %d pin as input", (int)gpio_dout);
     gpio_config_t dout_conf = {
         .pin_bit_mask = (1ULL << gpio_dout),
         .mode = GPIO_MODE_INPUT,
@@ -52,7 +52,7 @@ hx711_status_t hx711_init(hx711_t * dev, gpio_num_t gpio_dout, gpio_num_t gpio_s
     }
 
     /* seto sck as output */
-    ESP_LOGI(TAG, "setting %d pin as output", (int)gpio_sck);
+    ESP_LOGD(TAG, "setting %d pin as output", (int)gpio_sck);
     gpio_config_t sck_conf = {
         .pin_bit_mask = (1ULL << gpio_sck),
         .mode = GPIO_MODE_OUTPUT,
@@ -68,7 +68,7 @@ hx711_status_t hx711_init(hx711_t * dev, gpio_num_t gpio_dout, gpio_num_t gpio_s
 
     res = gpio_set_level(gpio_sck, 0);
     if (res == ESP_OK) {
-        ESP_LOGI(TAG, "init success");
+        ESP_LOGD(TAG, "init success");
         return HX711_OK;
     }
 
@@ -135,47 +135,12 @@ hx711_status_t hx711_read_raw(hx711_t * dev, int32_t * value) {
         esp_rom_delay_us(1);
     }
 
-    *value = (raw & 0x800000) ? (int32_t)(raw | 0xFF000000) : (int32_t)raw;
+    // *value = (raw & 0x800000) ? (int32_t)(raw | 0xFF000000) : (int32_t)raw;
+    /* for test purposes */
+        static uint8_t index = 0;
+        index = index % 10;
+        int32_t values[] = {50000, 50500, 49800, 51000, 50000, 49700, 51500, 50010, 49850, 50120};
+        *value = values[index++];
+    /* ================= */
     return HX711_OK;
 }
-
-/*
-hx711_status_t hx711_set_offset(hx711_t * dev, int32_t offset) {
-    if (dev == NULL) {
-        ESP_LOGE(TAG, "dev pointer to hx711 configuration is NULL");
-        return HX711_ERR_ARG;
-    }
-    dev->offset = offset;
-    return HX711_OK;
-}
-
-
-hx711_status_t hx711_get_offset(const hx711_t * dev, int32_t * value) {
-    if (dev == NULL || value == NULL) {
-        ESP_LOGE(TAG, "dev pointer to hx711 configuration or value pointer for offset is NULL");
-        return HX711_ERR_ARG;
-    }
-    *value = dev->offset;
-    return HX711_OK;
-}
-
-
-hx711_status_t hx711_set_scale(hx711_t * dev, int32_t scale) {
-    if (dev == NULL) {
-        ESP_LOGE(TAG, "dev pointer to hx711 configuration is NULL");
-        return HX711_ERR_ARG;
-    }
-    dev->scale = scale;
-    return HX711_OK;
-}
-
-
-hx711_status_t hx711_get_scale(const hx711_t * dev, int32_t * value) {
-    if (dev == NULL || value == NULL) {
-        ESP_LOGE(TAG, "dev pointer to hx711 configuration or value pointer for scale is NULL");
-        return HX711_ERR_ARG;
-    }
-    *value = dev->scale;
-    return HX711_OK;
-}
-*/
