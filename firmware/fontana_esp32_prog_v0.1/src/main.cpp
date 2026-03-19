@@ -1,5 +1,6 @@
 #include "measurements.hpp"
 #include "hx711.h"
+#include "uart.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
