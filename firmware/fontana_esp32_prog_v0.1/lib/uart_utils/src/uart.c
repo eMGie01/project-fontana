@@ -30,17 +30,16 @@ static void uart_event_task(void *pvParameters) {
             self->callback(buffer, len);
           }
           break;
-        case UART_FIFO_OVF:
-        case UART_BUFFER_FULL:
-          ESP_LOGW(TAG, "buffer overflow, flushing RX ...");
+        case (UART_FIFO_OVF || UART_BUFFER_FULL):
+          ESP_LOGW(TAG, "buffer event error, flushing RX ...");
           uart_flush_input(self->port);
           xQueueReset(self->event_queue);
           break;
         default:
           break;
-            }
-        }
+      }
     }
+  }
 }
 
 
@@ -82,7 +81,7 @@ uart_err_t uart_init(uart_t * cfg) {
     return UART_NOT_INITIALIZED;
   }
 
-  cfg->initialized = true
+  cfg->initialized = true;
   ESP_LOGD(TAG, "UART (num: %d) inited successfully", (uint8_t)cfg->port);
   return UART_OK;
 }
