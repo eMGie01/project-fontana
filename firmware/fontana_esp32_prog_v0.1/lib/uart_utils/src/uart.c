@@ -9,27 +9,32 @@
 
 
 static const char *TAG = "UART";
-static QueueHandle_t uart_event_queue = NULL;
-static uart_t * config = NULL;
 
 
 static void uart_event_task(void *pvParameters) {
+
+  if (!pvParameters) {
+    ESP_LOGE(TAG, "task parameters were NULL, destroying the task...");
+    vTaskDelete(NULL);
+  }
+  
+  uart_t * self = (uart_t *)pvParameters;
   uart_event_t event;
-  char buffer[256];
+  char buffer[self->rx_buffer_size];
   for (;;) {
-    if (xQueueReceive(uart_event_queue, &event, portMAX_DELAY)) {
+    if (xQueueReceive(self->event_queue, &event, portMAX_DELAY)) {
       switch (event.type) {
         case UART_DATA:
-          size_t len = (size_t)uart_read_bytes(config->port, buffer, sizeof(buffer), portMAX_DELAY);
+          size_t len = (size_t)uart_read_bytes(self->port, buffer, sizeof(buffer), portMAX_DELAY);
           if (len > 0) {
-            config->callback(buffer, len);
+            self->callback(buffer, len);
           }
           break;
         case UART_FIFO_OVF:
         case UART_BUFFER_FULL:
           ESP_LOGW(TAG, "buffer overflow, flushing RX ...");
-          uart_flush_input(config->port);
-          xQueueReset(uart_event_queue);
+          uart_flush_input(self->port);
+          xQueueReset(self->event_queue);
           break;
         default:
           break;
@@ -69,30 +74,46 @@ uart_err_t uart_init(uart_t * cfg) {
     return UART_NOT_INITIALIZED;
   }
 
-  if (ESP_OK != uart_driver_install(cfg->port, cfg->rx_buffer_size, cfg->tx_buffer_size, cfg->queue_size, &uart_event_queue, 0)) {
+  cfg->event_queue = NULL;
+  cfg->event_task = NULL;
+  cfg->initialized = false;
+  if (ESP_OK != uart_driver_install(cfg->port, cfg->rx_buffer_size, cfg->tx_buffer_size, cfg->queue_size, &cfg->event_queue, 0)) {
     ESP_LOGE(TAG, "installing uart driver for port %d failed", cfg->port);
     return UART_NOT_INITIALIZED;
   }
 
-  config = cfg;
-
+  cfg->initialized = true
   ESP_LOGD(TAG, "UART (num: %d) inited successfully", (uint8_t)cfg->port);
   return UART_OK;
 }
 
 
-void uart_start_task(void) {
-  xTaskCreate(uart_event_task, "uart_task", 2048, NULL, 3, NULL);
+uart_err_t uart_start_task(uart_t *cfg) {
+  if (!cfg || !cfg->initialized) {
+    ESP_LOGE(TAG, "creating uart task failed with error: %d", UART_NOT_INITIALIZED);
+    return UART_NOT_INITIALIZED;
+  }
+  if (pdPASS != xTaskCreate(uart_event_task, "uart_task", 2048, (void *)cfg, 3, &cfg->event_task)) {
+    ESP_LOGE(TAG, "creating uart task failed with error: %d", UART_UNIDENTIFIED_ERROR);
+    return UART_UNIDENTIFIED_ERROR;
+  }
+  return UART_OK;
 }
 
 
-uart_err_t uart_send_string(const char *str, size_t size) {
-  if (!config) {
+uart_err_t uart_send_string(uart_t * cfg, const char * str, size_t size) {
+  if (!cfg || !cfg->initialized) {
     ESP_LOGE(TAG, "sending string failed with error: %d", UART_NOT_INITIALIZED);
     return UART_NOT_INITIALIZED;
+  } else if (str == NULL) {
+    ESP_LOGE(TAG, "sending string failed with error: %d, str: NULL", UART_ERR_INVALID_PARAM);
+    return UART_ERR_INVALID_PARAM;
+  } else if (size == 0) {
+    ESP_LOGE(TAG, "sending string failed with error: %d, str: %s", UART_ERR_INVALID_PARAM, str);
+    return UART_ERR_INVALID_PARAM;
   }
-  if (0 > uart_write_bytes(config->port, str, size)) {
-    ESP_LOGE(TAG, "sending string with port: %d failed with unexpected error", config->port);
+  if (0 > uart_write_bytes(cfg->port, str, size)) {
+    ESP_LOGE(TAG, "sending string with port: %d failed with unexpected error", cfg->port);
     return UART_TX_SEND_ERR;
   }
   return UART_OK;

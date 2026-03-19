@@ -44,6 +44,9 @@ typedef struct {
   int rx_buffer_size;
   int queue_size;
   uart_rx_callback_t callback;
+  QueueHandle_t event_queue;
+  TaskHandle_t event_task;
+  bool initialized;
 } uart_t;
 
 /**
@@ -61,7 +64,7 @@ uart_err_t uart_init(uart_t * cfg);
  * @brief 
  * 
  */
-void uart_start_task(void);
+uart_err_t uart_start_task(uart_t *cfg);
 
 /**
  * @brief 
@@ -69,7 +72,7 @@ void uart_start_task(void);
  * @param str 
  * @return uart_err_t 
  */
-uart_err_t uart_send_string(const char * str, size_t size);
+uart_err_t uart_send_string(uart_t * cfg, const char * str, size_t size);
 
 
 
