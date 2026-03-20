@@ -1,22 +1,32 @@
-#include "hx711_new.h"
+#include "hx711.h"
 
 #include "esp_rom_sys.h"
 #include "esp_err.h"
 #include "esp_log.h"
 
-/**
- * read raw value
- * is read ready
- */
 
-bool
+#define ADC_BIT_COUNT 24
+
+
+hx711_status_t
 hx711_is_ready(const hx711_t * dev)
 {
     if ( !dev )
     {
-        return false;
+        return HX711_INVALID_ARG;
     }
-    return !gpio_get_level(dev->ios.io_dout);
+
+    if ( !dev->initialized )
+    {
+        return HX711_NOT_INITIALIZED;
+    }
+
+    if ( !gpio_get_level(dev->ios.io_dout) )
+    {
+        return HX711_OK;
+    }
+
+    return HX711_NOT_READY;
 }
 
 
@@ -37,14 +47,14 @@ hx711_read_raw(hx711_t * dev, int32_t * value)
         }
     }
 
-    if ( !dev->is_ready )
+    if ( HX711_OK != hx711_is_ready(dev) )
     {
-        return HX711_NOT_READY; // data not ready
+        return HX711_NOT_READY;
     }
 
     uint32_t raw_adc_value = 0;
 
-    for (uint8_t i = 0; i < 24; ++i)
+    for (uint8_t i = 0; i < ADC_BIT_COUNT; ++i)
     {
 
         if (ESP_OK != gpio_set_level(dev->ios.io_sck, 1) )
@@ -63,7 +73,7 @@ hx711_read_raw(hx711_t * dev, int32_t * value)
 
     }
 
-    for (uint8_t i = 0; i < ((uint8_t)dev->settings.mode - HX711_MODE_MIN); ++i)
+    for (uint8_t i = 0; i < ((uint8_t)dev->settings.mode - ADC_BIT_COUNT); ++i)
     {
         for (uint8_t j = 0; j < 2; ++j)
         {
@@ -75,6 +85,9 @@ hx711_read_raw(hx711_t * dev, int32_t * value)
         }
         
     }
+
+    *value = (raw_adc_value & 0x800000) ? (int32_t)(raw_adc_value | 0xFF000000) : (int32_t)raw_adc_value;
+    dev->last_raw = *value;
 
     return HX711_OK;
 }
