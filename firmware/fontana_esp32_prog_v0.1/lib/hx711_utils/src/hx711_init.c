@@ -12,10 +12,7 @@
             return HX711_HW_ERR;\
     } while (0)
 
-
-static const char * TAG = "HX711";
-
-
+    
 static hx711_status_t
 hx711_cfg_ios(hx711_hw_t * gpios)
 {
@@ -126,13 +123,20 @@ hx711_deinit(hx711_t * dev)
         return HX711_NOT_INITIALIZED;
     }
 
+    dev->ios = (hx711_hw_t) {0, 0};
+    dev->settings = (hx711_set_t) {0, 0};
+    dev->calib = (hx711_cal_t) {0, 0};
+    dev->last_raw = 0;
+    dev->initialized = false;
+
     if ( gpio_reset_pin(dev->ios.io_sck) != ESP_OK )
     {
-        return HX711_UNEXPECTED_ERR;
+        return HX711_HW_ERR;
     }
+    
     if ( gpio_reset_pin(dev->ios.io_dout) != ESP_OK )
     {
-        return HX711_UNEXPECTED_ERR;
+        return HX711_HW_ERR;
     }
 
     return HX711_OK;
