@@ -1,8 +1,7 @@
-#include "uart.h"
+#include "my_uart.h"
 
 #include "driver/uart.h"
 #include "freertos/idf_additions.h"
-#include "hal/uart_types.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_err.h"

@@ -1,5 +1,5 @@
-#ifndef UART_H
-#define UART_H
+#ifndef MY_UART_H
+#define MY_UART_H
 
 #include "driver/uart.h"
 #include "freertos/idf_additions.h"

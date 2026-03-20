@@ -1,5 +1,5 @@
 .pio
-.vscode
-.cache
+.vscode/c_cpp_properties.json
+.vscode/launch.json
 build
 test
