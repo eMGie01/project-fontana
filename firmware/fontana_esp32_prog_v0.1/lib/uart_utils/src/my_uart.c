@@ -4,7 +4,10 @@
 #include "freertos/idf_additions.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
+#include "esp_log.h"
 
+
+#define MAX_EVENT_BUFF_SIZE 128
 
 #define FLUSH_RESET(s)                  \
     do {                                \
@@ -12,9 +15,11 @@
         xQueueReset(s->handles.queue);  \
     } while (0)
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 
 static void
-uart_event_task (void * pvParameters)
+uart_event_task_ (void * pvParameters)
 {
     if ( !pvParameters )
     {
@@ -23,8 +28,10 @@ uart_event_task (void * pvParameters)
 
     my_uart_t * self = (my_uart_t *)pvParameters;
     uart_event_t event;
-    char rx_buffer[self->settings.rx_buffer_size];
 
+    /* buffer size max 128 */
+    char rx_buffer[MIN(self->settings.rx_buffer_size, MAX_EVENT_BUFF_SIZE)];
+    ESP_LOGI("UART_TASK", "going for it");
     for ( ;; )
     {
 
@@ -35,10 +42,20 @@ uart_event_task (void * pvParameters)
 
                 case UART_DATA:
 
-                    size_t len = (size_t)uart_read_bytes(self->port, rx_buffer, event.size, portMAX_DELAY);
-                    if ( 0 < len )
+                    size_t len = (size_t)uart_read_bytes(
+                        self->port, 
+                        rx_buffer, 
+                        MIN(MAX_EVENT_BUFF_SIZE, event.size), 
+                        portMAX_DELAY
+                    );
+                    if ( 0 < len && self->callback != NULL)
                     {
+                        ESP_LOGI("UART_TASK", "no callback");
                         self->callback(rx_buffer, len);
+                    } 
+                    else 
+                    {
+                        uart_write_bytes(self->port, rx_buffer, len);
                     }
                     break;
 
@@ -57,15 +74,13 @@ uart_event_task (void * pvParameters)
             }
         }
     }
-
-    return;
 }
 
 
 uart_err_t 
 uart_init(my_uart_t * dev)
 {
-    if ( !dev || !dev->callback )
+    if ( !dev )
     {
         return UART_INVALID_ARG;
     }
@@ -110,7 +125,7 @@ uart_init(my_uart_t * dev)
 uart_err_t
 uart_start_task(my_uart_t * dev)
 {
-    if ( !dev || !dev->handles.task )
+    if ( !dev || dev->handles.task )
     {
         return UART_INVALID_ARG;
     }
@@ -121,7 +136,7 @@ uart_start_task(my_uart_t * dev)
     }
 
     BaseType_t res = xTaskCreate(
-        uart_event_task, dev->settings.name,
+        uart_event_task_, dev->settings.name,
         2048, (void *)dev, 3, &dev->handles.task
     );
 
@@ -129,6 +144,52 @@ uart_start_task(my_uart_t * dev)
     {
         return UART_RUNTIME_ERR;
     }
+
+    return UART_OK;
+}
+
+
+uart_err_t 
+uart_end_task(my_uart_t * dev)
+{
+    if ( !dev || !dev->handles.task )
+    {
+        return UART_INVALID_ARG;
+    }
+
+    if ( !dev->initialized )
+    {
+        return UART_NOT_INITIALIZED;
+    }
+
+    vTaskDelete(dev->handles.task);
+    dev->handles.task = NULL;
+
+    return UART_OK;
+}
+
+
+uart_err_t
+uart_deinit(my_uart_t * dev)
+{
+    if ( !dev )
+    {
+        return UART_INVALID_ARG;
+    }
+
+    if ( !dev->initialized )
+    {
+        return UART_NOT_INITIALIZED;
+    }
+
+    if ( ESP_OK != uart_driver_delete(dev->port) )
+    {
+        return UART_RUNTIME_ERR;
+    }
+
+    dev->handles.queue = NULL;
+    dev->handles.task = NULL;
+    dev->initialized = false;
 
     return UART_OK;
 }

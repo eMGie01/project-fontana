@@ -62,6 +62,10 @@ typedef struct
 
 // Functions
 uart_err_t uart_init(my_uart_t * dev);
+uart_err_t uart_deinit(my_uart_t * dev);
+uart_err_t uart_start_task(my_uart_t * dev);
+uart_err_t uart_end_task(my_uart_t * dev);
+my_uart_t  uart_default_dev(uart_rx_cb_t cb);
 
 
 #ifdef __cplusplus
