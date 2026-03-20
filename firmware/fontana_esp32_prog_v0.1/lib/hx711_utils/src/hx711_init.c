@@ -50,7 +50,7 @@ hx711_init(hx711_t * dev, hx711_hw_t * gpios, hx711_set_t * settings)
         return HX711_HW_ERR;
     }
 
-    if ( HX711_MODE_MIN > settings->mode || HX711_MODE_MAX < settings->mode || settings->timeout_ms < 0 )
+    if ( HX711_MODE_MIN > settings->mode || HX711_MODE_MAX < settings->mode )
     {
         return HX711_INVALID_ARG;
     }
@@ -65,9 +65,10 @@ hx711_init(hx711_t * dev, hx711_hw_t * gpios, hx711_set_t * settings)
     dev->settings = *settings;
     dev->calib = (hx711_cal_t) {
         .offset = 0,
-        .scaleX1k = 1000U * 1U
+        .scaleX1k = 1000
     };
     dev->last_raw = 0;
+    dev->is_ready = false;
     dev->initialized = true;
 
     return HX711_OK;
@@ -101,9 +102,10 @@ hx711_init_default(hx711_t * dev, hx711_hw_t * gpios)
     };
     dev->calib = (hx711_cal_t) {
         .offset = 0,
-        .scaleX1k = 1000U * 1U
+        .scaleX1k = 1000
     };
     dev->last_raw = 0;
+    dev->is_ready = false;
     dev->initialized = true;
 
     return HX711_OK;
@@ -123,10 +125,10 @@ hx711_deinit(hx711_t * dev)
         return HX711_NOT_INITIALIZED;
     }
 
-    dev->ios = (hx711_hw_t) {0, 0};
     dev->settings = (hx711_set_t) {0, 0};
     dev->calib = (hx711_cal_t) {0, 0};
     dev->last_raw = 0;
+    dev->is_ready = false;
     dev->initialized = false;
 
     if ( gpio_reset_pin(dev->ios.io_sck) != ESP_OK )
@@ -138,6 +140,8 @@ hx711_deinit(hx711_t * dev)
     {
         return HX711_HW_ERR;
     }
+
+    dev->ios = (hx711_hw_t) {0, 0};
 
     return HX711_OK;
 }

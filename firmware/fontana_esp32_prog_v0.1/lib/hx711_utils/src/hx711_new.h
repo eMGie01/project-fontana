@@ -25,7 +25,8 @@ typedef enum
     HX711_INVALID_ARG,
     HX711_NOT_INITIALIZED,
     HX711_TIMEOUT,
-    HX711_HW_ERR
+    HX711_HW_ERR,
+    HX711_NOT_READY
 } hx711_status_t;
 
 // Structures
@@ -53,14 +54,16 @@ typedef struct
     hx711_set_t settings;
     hx711_cal_t calib;
     int32_t last_raw;
+    bool is_ready;
     bool initialized;
 } hx711_t;
 
 
 // Functions
-hx711_status_t hx711_init(hx711_t * dev, hx711_hw_t * gpios, hx711_set_t * settings);
-hx711_status_t hx711_init_default(hx711_t * dev, hx711_hw_t * gpios);
+hx711_status_t hx711_init(hx711_t * dev, const hx711_hw_t * gpios, const hx711_set_t * settings);
+hx711_status_t hx711_init_default(hx711_t * dev, const hx711_hw_t * gpios);
 hx711_status_t hx711_deinit(hx711_t * dev);
+bool hx711_is_ready(const hx711_t * dev);
 
 #ifdef __cplusplus
 }
