@@ -27,6 +27,7 @@ private:
     void resetLine();
     void executeLine();
     void printHelp();
+    void printErr(const char * err);
 
 private:
 
