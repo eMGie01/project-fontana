@@ -13,21 +13,35 @@ struct Context
 };
 
 
+enum cli_err_t 
+{
+    CLI_UNEXPECTED_ERR = -1,
+    CLI_OK = 0,
+    CLI_OVERFLOW_ERR,
+    CLI_EMPTY_LINE_ERR,
+    CLI_
+};
+
+
 class CLI
 {
 
 public:
 
     CLI(my_uart_t& uart, Context& ctx);
+
     void push(const char * data, size_t len);
     void process();
 
 private:
 
-    void resetLine();
-    void executeLine();
-    void printHelp();
-    void printErr(const char * err);
+    void   resetLine_();
+    void   executeLine_();
+    char * stripLine_();
+    size_t tokenizeLine_(char ** tokens, char * line, size_t max_count);
+    void   dispatchModule_(char ** token, size_t count);
+    void   printHelp_();
+    void   printErr_(const char * err);
 
 private:
 

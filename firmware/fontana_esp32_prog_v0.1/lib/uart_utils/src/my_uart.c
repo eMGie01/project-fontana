@@ -50,7 +50,6 @@ uart_event_task_ (void * pvParameters)
                     );
                     if ( 0 < len && self->callback != NULL)
                     {
-                        ESP_LOGI("UART_TASK", "no callback");
                         self->callback(rx_buffer, len);
                     } 
                     else 
@@ -125,7 +124,7 @@ uart_init(my_uart_t * dev)
 uart_err_t
 uart_start_task(my_uart_t * dev)
 {
-    if ( !dev || dev->handles.task )
+    if ( !dev || dev->handles.task || !dev->settings.name )
     {
         return UART_INVALID_ARG;
     }

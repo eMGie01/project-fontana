@@ -28,7 +28,7 @@ extern "C" void app_main()
     if ( UART_OK != uart_res_ )
     {
         ESP_LOGE(TAG, "uart init failed with error: %d", uart_res_);
-        vTaskDelay(portMAX_DELAY);
+        for (;;) {vTaskDelay(1000);}
     }
     ESP_LOGI(TAG, "uart initialized successfully");
 
@@ -36,7 +36,7 @@ extern "C" void app_main()
     if ( UART_OK != uart_res_ )
     {
         ESP_LOGE(TAG, "uart init failed with error: %d", uart_res_);
-        vTaskDelay(portMAX_DELAY);
+        for (;;) {vTaskDelay(1000);}
     }
     ESP_LOGI(TAG, "uart task started successfully");
 

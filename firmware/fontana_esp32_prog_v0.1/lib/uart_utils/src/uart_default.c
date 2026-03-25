@@ -19,6 +19,7 @@ uart_default_dev(uart_rx_cb_t cb)
             .tx = GPIO_NUM_1
         },
         .settings = (uart_set_t) {
+            .name = "uart_def",
             .queue_size = 16,
             .rx_buffer_size = 256,
             .tx_buffer_size = 256

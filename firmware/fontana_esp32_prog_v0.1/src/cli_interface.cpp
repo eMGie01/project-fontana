@@ -1,6 +1,7 @@
 #include "cli_interface.hpp"
 
 #include <cstring>
+#include <ctype.h>
 #include "esp_log.h"
 
 
@@ -73,7 +74,7 @@ process()
 {
     if ( overflow_error_ )
     {
-        printErr("buffer overflow occurred");
+        printErr_("buffer overflow occurred");
         overflow_error_ = false;
         return;
     }
@@ -81,20 +82,85 @@ process()
     if ( !cmd_ready_ )
         return;
 
-    char parsed_data[MAX_WORD_COUNT][MAX_CHARS_IN_WORD] = {};
-    size_t word_count = 0;
+    char * tokens[MAX_WORD_COUNT];
+    size_t token_count = tokenizeLine_(tokens, rx_line_, MAX_WORD_COUNT);
 
-    // parsowanie danych
-
-    if ( word_count == 0 )
+    if ( !token_count )
     {
-        resetLine();
+        resetLine_();
         return;
     }
 
-    // dispatch komend
-
-    resetLine();
+    dispatchModule_(tokens, token_count);
+    resetLine_();
 }
 
 
+char * CLI::
+stripLine_()
+{
+    if ( !rx_line_ ) 
+    {
+        return NULL;
+    }
+
+    char * start = rx_line_;
+    char * end = rx_line_ + rx_len_;
+
+    while ( (end > start) && isspace( (unsigned char)*(end-1) ) )
+    {
+        --end;
+    }
+    *end = '\0';
+
+    while ( (*start != '\0') && isspace( (unsigned char)*(end-1) ) )
+    {
+        ++start;
+    }
+
+    return start;
+}
+
+
+size_t CLI::
+tokenizeLine_(char **tokens, char *line, size_t max_count)
+{
+    size_t count = 0;
+    char * ptr = line;
+    
+    while ( *ptr != '\0' )
+    {
+        while (*ptr != '\0' && isspace((unsigned char)*ptr))
+            ++ptr;
+            
+        if ( *ptr == '\0' )
+            break;
+        
+        if ( count < max_count )
+            tokens[count++] = ptr;
+        else
+            break;
+            
+        while ( (*ptr != '\0') && !isspace((unsigned char)*ptr) )
+            ++ptr;
+            
+        if ( *ptr != '\0' )
+        {
+            *ptr = '\0';
+            ++ptr;
+        }
+    }
+
+    return count;
+}
+
+void CLI::
+dispatchModule_(char ** tokens, size_t count)
+{
+    if ( !tokens )
+    {
+        printErr_()
+        return;
+    }
+
+}
