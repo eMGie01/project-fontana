@@ -1,5 +1,6 @@
 #include "measurements.hpp"
 
+
 static constexpr uint16_t DEFAULT_AVG_WINDOW_SIZE = 64;
 static constexpr uint8_t DEFAULT_IIR_SHIFT = 1;
 

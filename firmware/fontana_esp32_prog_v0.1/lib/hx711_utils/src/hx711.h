@@ -1,5 +1,5 @@
-#ifndef HX711_H
-#define HX711_H
+#ifndef HX711_NEW_H
+#define HX711_NEW_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -9,72 +9,64 @@
 extern "C" {
 #endif
 
-
-/**
- * @brief Mode configurations
- */
+// Enums
 typedef enum {
+    HX711_MODE_MIN   = 25,
     HX711_MODE_A_128 = 25,
     HX711_MODE_B_32  = 26,
-    HX711_MODE_A_64  = 27
+    HX711_MODE_A_64  = 27,
+    HX711_MODE_MAX   = 27
 } hx711_mode_t;
 
-/**
- * @brief Return values of driver functions
- */
-typedef enum {
+typedef enum
+{
+    HX711_UNEXPECTED_ERR = -1,
     HX711_OK = 0,
-    HX711_ERR_ARG,
-    HX711_ERR_TIMEOUT,
-    HX711_ERR_NOT_READY
+    HX711_INVALID_ARG,
+    HX711_NOT_INITIALIZED,
+    HX711_TIMEOUT,
+    HX711_HW_ERR,
+    HX711_NOT_READY
 } hx711_status_t;
 
-/**
- * @brief Configuration parameters of HX711
- */
-typedef struct {
-    gpio_num_t gpio_dout;
-    gpio_num_t gpio_sck;
-    hx711_mode_t next_mode;
+// Structures
+typedef struct 
+{
+    int io_sck;
+    int io_dout;
+} hx711_hw_t;
+
+typedef struct
+{
+    hx711_mode_t mode;
+    uint32_t     timeout_ms;
+} hx711_set_t;
+
+typedef struct
+{
+    int32_t scale;
+    int32_t offset;
+} hx711_cal_t;
+
+typedef struct 
+{
+    hx711_hw_t  ios;
+    hx711_set_t settings;
+    hx711_cal_t calib;
+    int32_t     last_raw;
+    bool        initialized;
 } hx711_t;
 
-/**
- * @brief   Initialization of HX711 driver
- *
- * @param   dev Pointer to driver's configuration
- * @param   gpio_dout gpio number of dout signal
- * @param   gpio_sck gpio number of sck signal
- * @param   mode setting of next aquisition mode
- *
- * @return
- *     - HX711_OK success
- *     - HX711_ERR_ARG Parameter error
- */
-hx711_status_t hx711_init(hx711_t * dev, gpio_num_t gpio_dout, gpio_num_t gpio_sck, hx711_mode_t mode);
 
-/**
- * @brief   Check wheter HX711 data is ready to pull
- *
- * @param   dev Pointer to driver's configuration
- *
- * @return
- *     - True
- *     - False
- */
-bool hx711_is_ready(const hx711_t *dev);
-
-/**
- * @brief   Read measured value from ADC
- *
- * @param   dev Pointer to driver's configuration
- * @param   value Pointer to variable for measurement
- *
- * @return
- *     - HX711_OK success
- *     - HX711_ERR_ARG Parameter error
- *     - HX711_ERR_NOT_READY Data not ready to pull
- */
-hx711_status_t hx711_read_raw(hx711_t * dev, int32_t * value);
+// Functions
+hx711_status_t hx711_init(hx711_t * dev, hx711_hw_t * gpios, const hx711_set_t * settings);
+hx711_status_t hx711_init_default(hx711_t * dev, hx711_hw_t * gpios);
+hx711_status_t hx711_deinit(hx711_t * dev);
+hx711_status_t hx711_is_ready(const hx711_t * dev);
+hx711_status_t hx711_set_offset_raw(hx711_t * dev, const int32_t offset);
+hx711_status_t hx711_get_offset_raw(const hx711_t * dev, int32_t * value);
+hx711_status_t hx711_set_scale_raw(hx711_t * dev, const int32_t scale);
+hx711_status_t hx711_get_scale_raw(const hx711_t * dev, int32_t * value);
 
 
 #ifdef __cplusplus

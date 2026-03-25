@@ -3,116 +3,193 @@
 #include "driver/uart.h"
 #include "freertos/idf_additions.h"
 #include "driver/gpio.h"
-#include "esp_log.h"
 #include "esp_err.h"
+#include "esp_log.h"
 
 
-static const char *TAG = "UART";
+#define MAX_EVENT_BUFF_SIZE 128
+
+#define FLUSH_RESET(s)                  \
+    do {                                \
+        uart_flush_input(s->port);      \
+        xQueueReset(s->handles.queue);  \
+    } while (0)
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 
-static void uart_event_task(void *pvParameters) {
-
-  if (!pvParameters) {
-    ESP_LOGE(TAG, "task parameters were NULL, destroying the task...");
-    vTaskDelete(NULL);
-  }
-  
-  uart_t * self = (uart_t *)pvParameters;
-  uart_event_t event;
-  char buffer[self->rx_buffer_size];
-  for (;;) {
-    if (xQueueReceive(self->event_queue, &event, portMAX_DELAY)) {
-      switch (event.type) {
-        case UART_DATA:
-          size_t len = (size_t)uart_read_bytes(self->port, buffer, sizeof(buffer), portMAX_DELAY);
-          if (len > 0) {
-            self->callback(buffer, len);
-          }
-          break;
-        case (UART_FIFO_OVF || UART_BUFFER_FULL):
-          ESP_LOGW(TAG, "buffer event error, flushing RX ...");
-          uart_flush_input(self->port);
-          xQueueReset(self->event_queue);
-          break;
-        default:
-          break;
-      }
+static void
+uart_event_task_ (void * pvParameters)
+{
+    if ( !pvParameters )
+    {
+        vTaskDelete(NULL);
     }
-  }
+
+    my_uart_t * self = (my_uart_t *)pvParameters;
+    uart_event_t event;
+
+    /* buffer size max 128 */
+    char rx_buffer[MIN(self->settings.rx_buffer_size, MAX_EVENT_BUFF_SIZE)];
+    ESP_LOGI("UART_TASK", "going for it");
+    for ( ;; )
+    {
+
+        if ( xQueueReceive(self->handles.queue, &event, portMAX_DELAY) )
+        {
+            switch ( event.type )
+            {
+
+                case UART_DATA:
+
+                    size_t len = (size_t)uart_read_bytes(
+                        self->port, 
+                        rx_buffer, 
+                        MIN(MAX_EVENT_BUFF_SIZE, event.size), 
+                        portMAX_DELAY
+                    );
+                    if ( 0 < len && self->callback != NULL)
+                    {
+                        ESP_LOGI("UART_TASK", "no callback");
+                        self->callback(rx_buffer, len);
+                    } 
+                    else 
+                    {
+                        uart_write_bytes(self->port, rx_buffer, len);
+                    }
+                    break;
+
+                case UART_FIFO_OVF:
+
+                    FLUSH_RESET(self);
+                    break;
+
+                case UART_BUFFER_FULL:
+
+                    FLUSH_RESET(self);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
 }
 
 
-uart_err_t uart_init(uart_t * cfg) {
-  if (!cfg || !cfg->callback) {
-    ESP_LOGE(TAG, "init failed: configuration is NULL");
-    return UART_ERR_INVALID_PARAM;
-  }
+uart_err_t 
+uart_init(my_uart_t * dev)
+{
+    if ( !dev )
+    {
+        return UART_INVALID_ARG;
+    }
 
-  if (0 == cfg->uart_cfg.baud_rate) {
-    ESP_LOGE(TAG, "baudrate (%ld) has wrong value", (long)cfg->uart_cfg.baud_rate);
-    return UART_ERR_INVALID_PARAM;
-  }
+    if ( 0 == dev->cfg.baud_rate )
+    {
+        return UART_INVALID_CONFIG;
+    }
 
-  if (!GPIO_IS_VALID_OUTPUT_GPIO(cfg->gpio_tx)) {
-    ESP_LOGE(TAG, "gpio_tx (%d) is not a valid output pin", cfg->gpio_tx);
-    return UART_ERR_INVALID_PARAM;
-  }
+    if ( !GPIO_IS_VALID_OUTPUT_GPIO(dev->ios.tx) || !GPIO_IS_VALID_GPIO(dev->ios.rx) )
+    {
+        return UART_HW_ERROR;
+    }
 
-  if (!GPIO_IS_VALID_GPIO(cfg->gpio_rx)) {
-    ESP_LOGE(TAG, "gpio_rx (%d) is not a valid pin", cfg->gpio_rx);
-    return UART_ERR_INVALID_PARAM;
-  }
+    if ( ESP_OK != uart_param_config(dev->port, &dev->cfg) )
+    {
+        return UART_INVALID_CONFIG;
+    }
 
-  if (ESP_OK != uart_param_config(cfg->port, &cfg->uart_cfg)) {
-    ESP_LOGE(TAG, "setting uart configuration parameters for port: %d failed", (uint8_t)cfg->port);
-    return UART_NOT_INITIALIZED;
-  }
-  if (ESP_OK != uart_set_pin(cfg->port, cfg->gpio_tx, cfg->gpio_rx, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE)) {
-    ESP_LOGE(TAG, "setting pins (gpio_tx: %d and gpio_rx: %d) for port: %d failed", cfg->gpio_tx, cfg->gpio_rx, (uint8_t)cfg->port);
-    return UART_NOT_INITIALIZED;
-  }
+    if ( ESP_OK != uart_set_pin(dev->port, dev->ios.tx, dev->ios.rx, -1, -1) )
+    {
+        return UART_HW_ERROR;
+    }
 
-  cfg->event_queue = NULL;
-  cfg->event_task = NULL;
-  cfg->initialized = false;
-  if (ESP_OK != uart_driver_install(cfg->port, cfg->rx_buffer_size, cfg->tx_buffer_size, cfg->queue_size, &cfg->event_queue, 0)) {
-    ESP_LOGE(TAG, "installing uart driver for port %d failed", cfg->port);
-    return UART_NOT_INITIALIZED;
-  }
+    dev->handles.queue = NULL;
+    dev->handles.task = NULL;
+    dev->initialized = false;
 
-  cfg->initialized = true;
-  ESP_LOGD(TAG, "UART (num: %d) inited successfully", (uint8_t)cfg->port);
-  return UART_OK;
+    if ( ESP_OK != uart_driver_install(
+        dev->port, dev->settings.rx_buffer_size, 
+        dev->settings.tx_buffer_size, dev->settings.queue_size,
+    &dev->handles.queue, 0) )
+    {
+        return UART_RUNTIME_ERR;
+    }
+
+    dev->initialized = true;
+    return UART_OK;
 }
 
 
-uart_err_t uart_start_task(uart_t *cfg) {
-  if (!cfg || !cfg->initialized) {
-    ESP_LOGE(TAG, "creating uart task failed with error: %d", UART_NOT_INITIALIZED);
-    return UART_NOT_INITIALIZED;
-  }
-  if (pdPASS != xTaskCreate(uart_event_task, "uart_task", 2048, (void *)cfg, 3, &cfg->event_task)) {
-    ESP_LOGE(TAG, "creating uart task failed with error: %d", UART_UNIDENTIFIED_ERROR);
-    return UART_UNIDENTIFIED_ERROR;
-  }
-  return UART_OK;
+uart_err_t
+uart_start_task(my_uart_t * dev)
+{
+    if ( !dev || dev->handles.task )
+    {
+        return UART_INVALID_ARG;
+    }
+
+    if ( !dev->initialized )
+    {
+        return UART_NOT_INITIALIZED;
+    }
+
+    BaseType_t res = xTaskCreate(
+        uart_event_task_, dev->settings.name,
+        2048, (void *)dev, 3, &dev->handles.task
+    );
+
+    if ( pdPASS != res )
+    {
+        return UART_RUNTIME_ERR;
+    }
+
+    return UART_OK;
 }
 
 
-uart_err_t uart_send_string(uart_t * cfg, const char * str, size_t size) {
-  if (!cfg || !cfg->initialized) {
-    ESP_LOGE(TAG, "sending string failed with error: %d", UART_NOT_INITIALIZED);
-    return UART_NOT_INITIALIZED;
-  } else if (str == NULL) {
-    ESP_LOGE(TAG, "sending string failed with error: %d, str: NULL", UART_ERR_INVALID_PARAM);
-    return UART_ERR_INVALID_PARAM;
-  } else if (size == 0) {
-    ESP_LOGE(TAG, "sending string failed with error: %d, str: %s", UART_ERR_INVALID_PARAM, str);
-    return UART_ERR_INVALID_PARAM;
-  }
-  if (0 > uart_write_bytes(cfg->port, str, size)) {
-    ESP_LOGE(TAG, "sending string with port: %d failed with unexpected error", cfg->port);
-    return UART_TX_SEND_ERR;
-  }
-  return UART_OK;
+uart_err_t 
+uart_end_task(my_uart_t * dev)
+{
+    if ( !dev || !dev->handles.task )
+    {
+        return UART_INVALID_ARG;
+    }
+
+    if ( !dev->initialized )
+    {
+        return UART_NOT_INITIALIZED;
+    }
+
+    vTaskDelete(dev->handles.task);
+    dev->handles.task = NULL;
+
+    return UART_OK;
+}
+
+
+uart_err_t
+uart_deinit(my_uart_t * dev)
+{
+    if ( !dev )
+    {
+        return UART_INVALID_ARG;
+    }
+
+    if ( !dev->initialized )
+    {
+        return UART_NOT_INITIALIZED;
+    }
+
+    if ( ESP_OK != uart_driver_delete(dev->port) )
+    {
+        return UART_RUNTIME_ERR;
+    }
+
+    dev->handles.queue = NULL;
+    dev->handles.task = NULL;
+    dev->initialized = false;
+
+    return UART_OK;
 }
