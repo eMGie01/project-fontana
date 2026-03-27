@@ -22,7 +22,10 @@ typedef enum
     UART_NOT_INITIALIZED,
     UART_TIMEOUT,
     UART_HW_ERROR,
-    UART_NOT_READY
+    UART_NOT_READY,
+    UART_INVALID_RX_BUFFER_SIZE,
+    UART_INVALID_TX_BUFFER_SIZE,
+    UART_TASK_RUNNING
 } uart_err_t;
 
 // Structs
@@ -54,9 +57,19 @@ typedef struct
     uart_config_t cfg;
     uart_hw_t ios;
     uart_set_t settings;
-    uart_handles_t handles;
     uart_rx_cb_t callback;
+} my_uart_config_t;
+
+typedef struct
+{
+    uart_handles_t handles;
     bool initialized;
+} my_uart_runtime_t;
+
+typedef struct
+{
+    my_uart_config_t config;
+    my_uart_runtime_t runtime;
 } my_uart_t;
 
 
@@ -65,6 +78,7 @@ uart_err_t uart_init(my_uart_t * dev);
 uart_err_t uart_deinit(my_uart_t * dev);
 uart_err_t uart_start_task(my_uart_t * dev);
 uart_err_t uart_end_task(my_uart_t * dev);
+uart_err_t uart_set_callback(my_uart_t * dev, uart_rx_cb_t cb);
 my_uart_t  uart_default_dev(uart_rx_cb_t cb);
 
 

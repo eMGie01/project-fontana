@@ -11,8 +11,8 @@
 
 #define FLUSH_RESET(s)                  \
     do {                                \
-        uart_flush_input(s->port);      \
-        xQueueReset(s->handles.queue);  \
+        uart_flush_input(s->config.port);      \
+        xQueueReset(s->runtime.handles.queue);  \
     } while (0)
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -30,12 +30,12 @@ uart_event_task_ (void * pvParameters)
     uart_event_t event;
 
     /* buffer size max 128 */
-    char rx_buffer[MIN(self->settings.rx_buffer_size, MAX_EVENT_BUFF_SIZE)];
+    char rx_buffer[MIN(self->config.settings.rx_buffer_size, MAX_EVENT_BUFF_SIZE)];
     ESP_LOGI("UART_TASK", "going for it");
     for ( ;; )
     {
 
-        if ( xQueueReceive(self->handles.queue, &event, portMAX_DELAY) )
+        if ( xQueueReceive(self->runtime.handles.queue, &event, portMAX_DELAY) )
         {
             switch ( event.type )
             {
@@ -43,19 +43,19 @@ uart_event_task_ (void * pvParameters)
                 case UART_DATA:
 
                     size_t len = (size_t)uart_read_bytes(
-                        self->port, 
+                        self->config.port, 
                         rx_buffer, 
                         MIN(MAX_EVENT_BUFF_SIZE, event.size), 
                         portMAX_DELAY
                     );
-                    if ( 0 < len && self->callback != NULL)
+                    if ( 0 < len && self->config.callback != NULL)
                     {
-                        self->callback(rx_buffer, len);
+                        self->config.callback(rx_buffer, len);
                     } 
-                    else 
-                    {
-                        uart_write_bytes(self->port, rx_buffer, len);
-                    }
+                    // else 
+                    // {
+                    //     uart_write_bytes(self->config.port, rx_buffer, len);
+                    // }
                     break;
 
                 case UART_FIFO_OVF:
@@ -84,39 +84,72 @@ uart_init(my_uart_t * dev)
         return UART_INVALID_ARG;
     }
 
-    if ( 0 == dev->cfg.baud_rate )
+    if ( 0 == dev->config.cfg.baud_rate )
     {
         return UART_INVALID_CONFIG;
     }
 
-    if ( !GPIO_IS_VALID_OUTPUT_GPIO(dev->ios.tx) || !GPIO_IS_VALID_GPIO(dev->ios.rx) )
+    if ( !GPIO_IS_VALID_OUTPUT_GPIO(dev->config.ios.tx) || !GPIO_IS_VALID_GPIO(dev->config.ios.rx) )
     {
         return UART_HW_ERROR;
     }
 
-    if ( ESP_OK != uart_param_config(dev->port, &dev->cfg) )
+    if ( ESP_OK != uart_param_config(dev->config.port, &dev->config.cfg) )
     {
         return UART_INVALID_CONFIG;
     }
 
-    if ( ESP_OK != uart_set_pin(dev->port, dev->ios.tx, dev->ios.rx, -1, -1) )
+    if ( ESP_OK != uart_set_pin(dev->config.port, dev->config.ios.tx, dev->config.ios.rx, -1, -1) )
     {
         return UART_HW_ERROR;
     }
 
-    dev->handles.queue = NULL;
-    dev->handles.task = NULL;
-    dev->initialized = false;
+    if ( dev->config.settings.rx_buffer_size > MAX_EVENT_BUFF_SIZE || dev->config.settings.rx_buffer_size <= 0 ) 
+    {
+        return UART_INVALID_RX_BUFFER_SIZE;
+    }
+
+    if ( dev->config.settings.tx_buffer_size > MAX_EVENT_BUFF_SIZE || dev->config.settings.tx_buffer_size <= 0 ) 
+    {
+        return UART_INVALID_TX_BUFFER_SIZE;
+    }
+
+    dev->runtime.handles.queue = NULL;
+    dev->runtime.handles.task = NULL;
+    dev->runtime.initialized = false;
+
 
     if ( ESP_OK != uart_driver_install(
-        dev->port, dev->settings.rx_buffer_size, 
-        dev->settings.tx_buffer_size, dev->settings.queue_size,
-    &dev->handles.queue, 0) )
+        dev->config.port, dev->config.settings.rx_buffer_size, 
+        dev->config.settings.tx_buffer_size, dev->config.settings.queue_size,
+    &dev->runtime.handles.queue, 0) )
     {
         return UART_RUNTIME_ERR;
     }
 
-    dev->initialized = true;
+    dev->runtime.initialized = true;
+    return UART_OK;
+}
+
+uart_err_t
+uart_set_callback(my_uart_t * dev, uart_rx_cb_t cb)
+{
+    if ( !dev )
+    {
+        return UART_INVALID_ARG;
+    }
+
+    if ( !dev->runtime.initialized )
+    {
+        return UART_NOT_INITIALIZED;
+    }
+
+    if ( dev->runtime.handles.task != NULL )
+    {
+        return UART_TASK_RUNNING;
+    }
+
+    dev->config.callback = cb;
     return UART_OK;
 }
 
@@ -124,19 +157,19 @@ uart_init(my_uart_t * dev)
 uart_err_t
 uart_start_task(my_uart_t * dev)
 {
-    if ( !dev || dev->handles.task || !dev->settings.name )
+    if ( !dev || dev->runtime.handles.task || !dev->config.settings.name )
     {
         return UART_INVALID_ARG;
     }
 
-    if ( !dev->initialized )
+    if ( !dev->runtime.initialized )
     {
         return UART_NOT_INITIALIZED;
     }
 
     BaseType_t res = xTaskCreate(
-        uart_event_task_, dev->settings.name,
-        2048, (void *)dev, 3, &dev->handles.task
+        uart_event_task_, dev->config.settings.name,
+        2048, (void *)dev, 3, &dev->runtime.handles.task
     );
 
     if ( pdPASS != res )
@@ -151,18 +184,18 @@ uart_start_task(my_uart_t * dev)
 uart_err_t 
 uart_end_task(my_uart_t * dev)
 {
-    if ( !dev || !dev->handles.task )
+    if ( !dev || !dev->runtime.handles.task )
     {
         return UART_INVALID_ARG;
     }
 
-    if ( !dev->initialized )
+    if ( !dev->runtime.initialized )
     {
         return UART_NOT_INITIALIZED;
     }
 
-    vTaskDelete(dev->handles.task);
-    dev->handles.task = NULL;
+    vTaskDelete(dev->runtime.handles.task);
+    dev->runtime.handles.task = NULL;
 
     return UART_OK;
 }
@@ -176,19 +209,28 @@ uart_deinit(my_uart_t * dev)
         return UART_INVALID_ARG;
     }
 
-    if ( !dev->initialized )
+    if ( !dev->runtime.initialized )
     {
         return UART_NOT_INITIALIZED;
     }
 
-    if ( ESP_OK != uart_driver_delete(dev->port) )
+    if ( dev->runtime.handles.task )
+    {
+        uart_err_t res = uart_end_task(dev);
+        if ( res != UART_OK )
+        {
+            return res;
+        }
+    }
+
+    if ( ESP_OK != uart_driver_delete(dev->config.port) )
     {
         return UART_RUNTIME_ERR;
     }
 
-    dev->handles.queue = NULL;
-    dev->handles.task = NULL;
-    dev->initialized = false;
+    dev->runtime.handles.queue = NULL;
+    dev->runtime.handles.task = NULL;
+    dev->runtime.initialized = false;
 
     return UART_OK;
 }
