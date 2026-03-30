@@ -10,7 +10,7 @@
 #define ADC_BIT_COUNT 24
 
 
-hx711_status_t 
+static hx711_status_t 
 read_raw_(hx711_t * dev, int32_t * value)
 {
     uint32_t raw_adc_value = 0;

@@ -7,7 +7,6 @@
 #include "esp_log.h"
 
 
-#define MAX_EVENT_BUFF_SIZE 128
 
 #define FLUSH_RESET(s)                  \
     do {                                \
@@ -50,7 +49,7 @@ uart_event_task_ (void * pvParameters)
                     );
                     if ( 0 < len && self->config.callback != NULL)
                     {
-                        self->config.callback(rx_buffer, len);
+                        self->config.callback(self->config.ctx, rx_buffer, len);
                     } 
                     // else 
                     // {
@@ -132,7 +131,7 @@ uart_init(my_uart_t * dev)
 }
 
 uart_err_t
-uart_set_callback(my_uart_t * dev, uart_rx_cb_t cb)
+uart_set_callback(my_uart_t * dev, uart_rx_cb_t cb, void * ctx)
 {
     if ( !dev )
     {
@@ -150,6 +149,7 @@ uart_set_callback(my_uart_t * dev, uart_rx_cb_t cb)
     }
 
     dev->config.callback = cb;
+    dev->config.ctx = ctx;
     return UART_OK;
 }
 

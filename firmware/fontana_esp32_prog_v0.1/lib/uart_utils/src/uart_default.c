@@ -25,7 +25,8 @@ uart_default_dev(uart_rx_cb_t cb)
                 .rx_buffer_size = 128,
                 .tx_buffer_size = 128
             },
-            .callback = cb
+            .callback = cb,
+            .ctx = NULL
         },
         .runtime = (my_uart_runtime_t) {
             .handles = (uart_handles_t) {

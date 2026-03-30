@@ -1,6 +1,7 @@
+#include "cli_interface.hpp"
 #include "measurements.hpp"
-#include "hx711.h"
 #include "my_uart.h"
+#include "hx711.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -17,33 +18,78 @@
 static const char * TAG = "MAIN";
 
 
-extern "C" void app_main() 
+static void
+uart_cli_bridge_(void * ctx, const char * data, size_t len)
+{
+    if ( ctx != nullptr )
+    {
+        static_cast<CLI *>(ctx)->push(data, len);
+    }
+}
+
+
+extern "C" void
+app_main()
 {
     ESP_LOGI(TAG, "program started");
 
-    // Init
-    my_uart_t uart_0_ = uart_default_dev(NULL); /*change to proper callback*/
-
-    uart_err_t uart_res_ = uart_init(&uart_0_);
-    if ( UART_OK != uart_res_ )
+    hx711_t hx711;
+    hx711_status_t hx_res = hx711_init_default(
+        &hx711,
+        &(hx711_hw_t){
+            .io_sck = HX711_SCK,
+            .io_dout = HX711_DOUT
+        }
+    );
+    if ( HX711_OK != hx_res )
     {
-        ESP_LOGE(TAG, "uart init failed with error: %d", uart_res_);
-        for (;;) {vTaskDelay(1000);}
+        ESP_LOGE(TAG, "hx711 init failed with error: %d", hx_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
     }
-    ESP_LOGI(TAG, "uart initialized successfully");
 
-    uart_res_ = uart_start_task(&uart_0_);
-    if ( UART_OK != uart_res_ )
+    Measurement meas;
+
+    QueueHandle_t cli_queue = xQueueCreate(8, MAX_EVENT_BUFF_SIZE);
+    if ( cli_queue == NULL )
     {
-        ESP_LOGE(TAG, "uart init failed with error: %d", uart_res_);
-        for (;;) {vTaskDelay(1000);}
+        ESP_LOGE(TAG, "cli queue init failed");
+        for (;;) { vTaskDelay(portMAX_DELAY); }
     }
-    ESP_LOGI(TAG, "uart task started successfully");
 
-    
-    // Loop
+    my_uart_t uart = uart_default_dev(NULL);
+    Context ctx = {
+        .hx711 = &hx711,
+        .meas = &meas
+    };
+    CLI cli(uart, ctx, cli_queue);
+
+    uart_err_t uart_res = uart_init(&uart);
+    if ( UART_OK != uart_res )
+    {
+        ESP_LOGE(TAG, "uart init failed with error: %d", uart_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
+
+    uart_res = uart_set_callback(&uart, uart_cli_bridge_, &cli);
+    if ( UART_OK != uart_res )
+    {
+        ESP_LOGE(TAG, "uart set callback failed with error: %d", uart_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
+
+    uart_res = uart_start_task(&uart);
+    if ( UART_OK != uart_res )
+    {
+        ESP_LOGE(TAG, "uart start task failed with error: %d", uart_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
+
     for (;;)
     {
-        vTaskDelay(pdMS_TO_TICKS(500));
+        char line[MAX_EVENT_BUFF_SIZE] = {};
+        if ( xQueueReceive(cli_queue, line, portMAX_DELAY) == pdTRUE )
+        {
+            cli.process(line);
+        }
     }
 }

@@ -11,6 +11,9 @@ extern "C" {
 #endif
 
 
+// Defines
+#define MAX_EVENT_BUFF_SIZE 128
+
 // Enums
 typedef enum
 {
@@ -49,7 +52,7 @@ typedef struct
     TaskHandle_t  task;
 } uart_handles_t;
 
-typedef void (*uart_rx_cb_t)(const char * data, size_t size);
+typedef void (*uart_rx_cb_t)(void * ctx, const char * data, size_t size);
 
 typedef struct 
 {
@@ -58,6 +61,7 @@ typedef struct
     uart_hw_t ios;
     uart_set_t settings;
     uart_rx_cb_t callback;
+    void * ctx;
 } my_uart_config_t;
 
 typedef struct
@@ -78,7 +82,7 @@ uart_err_t uart_init(my_uart_t * dev);
 uart_err_t uart_deinit(my_uart_t * dev);
 uart_err_t uart_start_task(my_uart_t * dev);
 uart_err_t uart_end_task(my_uart_t * dev);
-uart_err_t uart_set_callback(my_uart_t * dev, uart_rx_cb_t cb);
+uart_err_t uart_set_callback(my_uart_t * dev, uart_rx_cb_t cb, void * ctx);
 my_uart_t  uart_default_dev(uart_rx_cb_t cb);
 
 

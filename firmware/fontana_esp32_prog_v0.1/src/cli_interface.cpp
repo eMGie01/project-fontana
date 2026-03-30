@@ -1,8 +1,10 @@
 #include "cli_interface.hpp"
+#include "cli_handles.hpp"
 
 #include <cstring>
 #include <ctype.h>
 #include "esp_log.h"
+#include "freertos/idf_additions.h"
 
 
 #define MAX_WORD_COUNT    8
@@ -66,7 +68,11 @@ push (const char * data, size_t len)
             if ( data[i] == '\n' )
             {
                 rx_line_[rx_len_] = '\0';
-                xQueueSend(queue_, rx_line_, 0);
+                if ( pdPASS != xQueueSend(queue_, rx_line_, 0) )
+                {
+                    ESP_LOGE(TAG, "process failed with error (%d)", CLI_QUEUE_OVERFLOW);
+                    printErr_(TAG, CLI_QUEUE_OVERFLOW, "process failed");
+                }
                 resetLine_();
                 return;
             }
@@ -142,19 +148,30 @@ dispatchModule_(char ** tokens, size_t count)
         return;
     }
 	
-	if ( strcmp(tokens[0], "hx711") == 0 )
-	{
-	    ESP_LOGI(TAG, "module match: %s", tokens[0]);
-	}
-	else if ( strcmp(tokens[0], "meas") == 0 )
-	{
-	    ESP_LOGI(TAG, "module match: %s", tokens[0]);
-	}
-	else
-	{
-	    ESP_LOGW(TAG, "no matching module: %s", tokens[0]);
-        printErr_(TAG, CLI_MODULE_ERR, "dispatch failed");
-	}
+    cli_err_t res = CLI_MODULE_ERR;
+    if ( strcmp(tokens[0], "hx711") == 0 )
+    {
+        res = hx711_handle(tokens, count, ctx_, uart_);
+    }
+    else if ( strcmp(tokens[0], "meas") == 0 )
+    {
+        res = meas_handle(tokens, count, ctx_, uart_);
+    }
+    else if (strcmp(tokens[0], "help") == 0 )
+    {
+        printHelp_();
+        res = CLI_OK;
+    }   
+    else
+    {
+        ESP_LOGW(TAG, "no matching module: %s", tokens[0]);
+    }
+
+    if ( res != CLI_OK )
+    {
+        ESP_LOGE(TAG, "dispatch failed with error (%d)", res);
+        printErr_(TAG, res, "dispatch failed");
+    }
 }
 
 void CLI::
@@ -166,10 +183,34 @@ resetLine_()
 
 
 void CLI::
+printHelp_()
+{
+    static const char help_text[] =
+        "Available commands:\r\n"
+        "  help\r\n"
+        "  hx711 get offset\r\n"
+        "  hx711 get scale\r\n"
+        "  hx711 set offset <value>\r\n"
+        "  hx711 set scale <value>\r\n"
+        "  meas get filt\r\n"
+        "  meas get avg\r\n"
+        "  meas set offset <value>\r\n"
+        "  meas set scale <value>\r\n"
+        "  meas set iir <1..4>\r\n"
+        "  meas set avgwin <value>\r\n";
+
+    if ( uart_write_bytes(uart_.config.port, help_text, sizeof(help_text) - 1) < 0 )
+    {
+        ESP_LOGE(TAG, "failed with error: %d", CLI_SEND_RES_ERR);
+    }
+}
+
+
+void CLI::
 printErr_(const char * module, const int err, const char * msg)
 {
     char payload[128];
-    size_t length = snprintf(
+    int length = snprintf(
         payload, 
         sizeof(payload),
         "ERR %s %d %s\r\n",
@@ -178,7 +219,7 @@ printErr_(const char * module, const int err, const char * msg)
         msg ? msg : ""
     );
 
-    if ( length < 0 )
+    if ( length <= 0 )
         return;
     
     if ( length >= sizeof(payload) )
@@ -186,7 +227,7 @@ printErr_(const char * module, const int err, const char * msg)
         length = sizeof(payload) - 1;
     }
 
-    if ( uart_write_bytes(uart_.config.port, payload, length) < 0 )
+    if ( uart_write_bytes(uart_.config.port, payload, (size_t)length) < 0 )
     {
         ESP_LOGE(TAG, "failed with error: %d", CLI_SEND_RES_ERR);
     }
