@@ -22,8 +22,8 @@ uart_default_dev(uart_rx_cb_t cb)
             .settings = (uart_set_t) {
                 .name = "uart_def",
                 .queue_size = 16,
-                .rx_buffer_size = 128,
-                .tx_buffer_size = 128
+                .rx_buffer_size = 256,
+                .tx_buffer_size = 256
             },
             .callback = cb,
             .ctx = NULL
