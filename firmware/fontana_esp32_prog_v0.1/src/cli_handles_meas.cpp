@@ -13,6 +13,44 @@ static const char * TAG = "MEAS_H";
 
 
 static cli_err_t
+take_mutex_(SemaphoreHandle_t mtx, const char * what)
+{
+    if (!mtx)
+    {
+        return CLI_INVALID_ARG_ERR;
+    }
+
+    if (xSemaphoreTake(mtx, portMAX_DELAY) != pdTRUE)
+    {
+        ESP_LOGE(TAG, "couldn't take mutex over %s", what ? what : "unknown");
+        return CLI_MUTEX_ERR;
+    }
+
+    return CLI_OK;
+}
+
+
+static cli_err_t
+map_meas_err_(meas_err_t res)
+{
+    switch (res)
+    {
+        case MEAS_OK:
+            return CLI_OK;
+        case MEAS_INVALID_ARG_ERR:
+            return CLI_INVALID_ARG_ERR;
+        case MEAS_FILT_NOT_RDY:
+        case MEAS_AVG_NOT_RDY:
+        case MEAS_ZERO_DIV_ERR:
+            return CLI_MODULE_ERR;
+        case MEAS_UNEXPECTED_ERR:
+        default:
+            return CLI_UNEXPECTED_ERR;
+    }
+}
+
+
+static cli_err_t
 send_meas_value_(my_uart_t& uart, const char * field, int32_t value)
 {
     char payload[128];
@@ -68,48 +106,37 @@ meas_handle_get_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 
     int32_t value = 0;
     const char * field = tokens[2];
+    cli_err_t lock_res = take_mutex_(ctx.meas_mtx, field);
+    if (lock_res != CLI_OK)
+    {
+        return lock_res;
+    }
+    meas_err_t res = MEAS_UNEXPECTED_ERR;
 
     if (strcmp(field, "filt") == 0)
     {
-        if ( pdTRUE == xSemaphoreTake(ctx.meas_mtx, portMAX_DELAY) )
-        {
-            meas_err_t res = ctx.meas->getFilteredValueX1000(value);
-            xSemaphoreGive(ctx.meas_mtx);
-            if (res != MEAS_OK)
-            {
-                ESP_LOGE(TAG, "`get` failed with error (%d)", res);
-                return CLI_UNEXPECTED_ERR;
-            }
-            return send_meas_value_(uart, "filt_x1000", value);
-        }
-        else
-        {
-            ESP_LOGE(TAG, "couldnt take mutex over meas %s in cli_task_", field);
-            return CLI_MUTEX_ERR;
-        }
+        res = ctx.meas->getFilteredValueX1000(value);
     }
-
-    if (strcmp(field, "avg") == 0)
+    else if (strcmp(field, "avg") == 0)
     {
-        if ( pdTRUE == xSemaphoreTake(ctx.meas_mtx, portMAX_DELAY) )
-        {
-            meas_err_t res = ctx.meas->getAvgValueX1000(value);
-            xSemaphoreGive(ctx.meas_mtx);
-            if (res != MEAS_OK)
-            {
-                ESP_LOGE(TAG, "`get` failed with error (%d)", res);
-                return CLI_UNEXPECTED_ERR;
-            }
-            return send_meas_value_(uart, "avg_x1000", value);
-        }
-        else
-        {
-            ESP_LOGE(TAG, "couldnt take mutex over meas %s in cli_task_", field);
-            return CLI_MUTEX_ERR;
-        }
+        res = ctx.meas->getAvgValueX1000(value);
+    }
+    else
+    {
+        xSemaphoreGive(ctx.meas_mtx);
+        return CLI_MODULE_ERR;
     }
 
-    return CLI_MODULE_ERR;
+    xSemaphoreGive(ctx.meas_mtx);
+
+    cli_err_t mapped = map_meas_err_(res);
+    if (mapped != CLI_OK)
+    {
+        ESP_LOGE(TAG, "`get` failed with error (%d)", res);
+        return mapped;
+    }
+
+    return send_meas_value_(uart, strcmp(field, "filt") == 0 ? "filt_x1000" : "avg_x1000", value);
 }
 
 
@@ -139,30 +166,24 @@ meas_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 
     if (strcmp(field, "offset") == 0)
     {
-        if ( pdTRUE == xSemaphoreTake(ctx.meas_mtx, portMAX_DELAY) )
+        cli_err_t lock_res = take_mutex_(ctx.meas_mtx, field);
+        if (lock_res != CLI_OK)
         {
-            ctx.meas->setOffsetRaw(value);
-            xSemaphoreGive(ctx.meas_mtx);
-            return CLI_OK;
+            return lock_res;
         }
-        else
-        {
-            ESP_LOGE(TAG, "couldnt take mutex over meas %s in cli_task_", field);
-            return CLI_MUTEX_ERR;
-        }
+        ctx.meas->setOffsetRaw(value);
+        xSemaphoreGive(ctx.meas_mtx);
+        return CLI_OK;
     }
     else if (strcmp(field, "scale") == 0)
     {
-        if ( pdTRUE == xSemaphoreTake(ctx.meas_mtx, portMAX_DELAY) )
+        cli_err_t lock_res = take_mutex_(ctx.meas_mtx, field);
+        if (lock_res != CLI_OK)
         {
-            res = ctx.meas->setCountsPerMmHgX1000(value);
-            xSemaphoreGive(ctx.meas_mtx);
+            return lock_res;
         }
-        else
-        {
-            ESP_LOGE(TAG, "couldnt take mutex over meas %s in cli_task_", field);
-            return CLI_MUTEX_ERR;
-        }
+        res = ctx.meas->setCountsPerMmHgX1000(value);
+        xSemaphoreGive(ctx.meas_mtx);
     }
     else if (strcmp(field, "iir") == 0)
     {
@@ -170,16 +191,13 @@ meas_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
         {
             return CLI_INVALID_ARG_ERR;
         }
-        if ( pdTRUE == xSemaphoreTake(ctx.meas_mtx, portMAX_DELAY) )
+        cli_err_t lock_res = take_mutex_(ctx.meas_mtx, field);
+        if (lock_res != CLI_OK)
         {
-            res = ctx.meas->setIirShift((uint8_t)value);
-            xSemaphoreGive(ctx.meas_mtx);
+            return lock_res;
         }
-        else
-        {
-            ESP_LOGE(TAG, "couldnt take mutex over meas %s in cli_task_", field);
-            return CLI_MUTEX_ERR;
-        }
+        res = ctx.meas->setIirShift((uint8_t)value);
+        xSemaphoreGive(ctx.meas_mtx);
     }
     else if (strcmp(field, "avgwin") == 0)
     {
@@ -187,26 +205,24 @@ meas_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
         {
             return CLI_INVALID_ARG_ERR;
         }
-        if ( pdTRUE == xSemaphoreTake(ctx.meas_mtx, portMAX_DELAY) )
+        cli_err_t lock_res = take_mutex_(ctx.meas_mtx, field);
+        if (lock_res != CLI_OK)
         {
-            res = ctx.meas->setAvgWindowSize((uint16_t)value);
-            xSemaphoreGive(ctx.meas_mtx);
+            return lock_res;
         }
-        else
-        {
-            ESP_LOGE(TAG, "couldnt take mutex over meas %s in cli_task_", field);
-            return CLI_MUTEX_ERR;
-        }
+        res = ctx.meas->setAvgWindowSize((uint16_t)value);
+        xSemaphoreGive(ctx.meas_mtx);
     }
     else
     {
         return CLI_MODULE_ERR;
     }
 
-    if (res != MEAS_OK)
+    cli_err_t mapped = map_meas_err_(res);
+    if (mapped != CLI_OK)
     {
         ESP_LOGE(TAG, "`set` failed with error (%d)", res);
-        return CLI_UNEXPECTED_ERR;
+        return mapped;
     }
 
     return CLI_OK;

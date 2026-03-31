@@ -12,6 +12,45 @@ static const char * TAG = "HX711_H";
 
 
 static cli_err_t
+take_mutex_(SemaphoreHandle_t mtx, const char * what)
+{
+    if (!mtx)
+    {
+        return CLI_INVALID_ARG_ERR;
+    }
+
+    if (xSemaphoreTake(mtx, portMAX_DELAY) != pdTRUE)
+    {
+        ESP_LOGE(TAG, "couldn't take mutex over %s", what ? what : "unknown");
+        return CLI_MUTEX_ERR;
+    }
+
+    return CLI_OK;
+}
+
+
+static cli_err_t
+map_hx711_err_(hx711_status_t res)
+{
+    switch (res)
+    {
+        case HX711_OK:
+            return CLI_OK;
+        case HX711_INVALID_ARG:
+            return CLI_INVALID_ARG_ERR;
+        case HX711_NOT_READY:
+        case HX711_TIMEOUT:
+            return CLI_MODULE_ERR;
+        case HX711_NOT_INITIALIZED:
+        case HX711_HW_ERR:
+        case HX711_UNEXPECTED_ERR:
+        default:
+            return CLI_UNEXPECTED_ERR;
+    }
+}
+
+
+static cli_err_t
 send_hx711_value_(my_uart_t& uart, const char * field, int32_t value)
 {
     char payload[128];
@@ -63,40 +102,33 @@ hx711_handle_get_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
     int32_t value = 0;
     hx711_status_t res = HX711_UNEXPECTED_ERR;
     const char * field = tokens[2];
+    cli_err_t lock_res = take_mutex_(ctx.hx711_mtx, field);
+    if (lock_res != CLI_OK)
+    {
+        return lock_res;
+    }
 
     if (strcmp(field, "offset") == 0)
     {
-        if ( pdTRUE == xSemaphoreTake(ctx.hx711_mtx, portMAX_DELAY) )
-        {
-            res = hx711_get_offset_raw(ctx.hx711, &value);
-            xSemaphoreGive(ctx.hx711_mtx);
-        }
-        else
-        {
-            ESP_LOGE(TAG, "couldnt take mutex over hx711 %s in cli_task_", field);
-        }
+        res = hx711_get_offset_raw(ctx.hx711, &value);
     }
     else if (strcmp(field, "scale") == 0)
     {
-        if ( pdTRUE == xSemaphoreTake(ctx.hx711_mtx, portMAX_DELAY) )
-        {
-            res = hx711_get_scale_raw(ctx.hx711, &value);
-            xSemaphoreGive(ctx.hx711_mtx);
-        }
-        else
-        {
-            ESP_LOGE(TAG, "couldnt take mutex over hx711 %s in cli_task_", field);
-        }
+        res = hx711_get_scale_raw(ctx.hx711, &value);
     }
     else
     {
+        xSemaphoreGive(ctx.hx711_mtx);
         return CLI_MODULE_ERR;
     }
 
-    if (res != HX711_OK)
+    xSemaphoreGive(ctx.hx711_mtx);
+
+    cli_err_t mapped = map_hx711_err_(res);
+    if (mapped != CLI_OK)
     {
         ESP_LOGE(TAG, "`get` failed with error (%d)", res);
-        return CLI_UNEXPECTED_ERR;
+        return mapped;
     }
 
     return send_hx711_value_(uart, field, value);
@@ -120,40 +152,33 @@ hx711_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 
     hx711_status_t res = HX711_UNEXPECTED_ERR;
     const char * field = tokens[2];
+    cli_err_t lock_res = take_mutex_(ctx.hx711_mtx, field);
+    if (lock_res != CLI_OK)
+    {
+        return lock_res;
+    }
 
     if (strcmp(field, "offset") == 0)
     {
-        if ( pdTRUE == xSemaphoreTake(ctx.hx711_mtx, portMAX_DELAY) )
-        {
-            res = hx711_set_offset_raw(ctx.hx711, value);
-            xSemaphoreGive(ctx.hx711_mtx);
-        }
-        else
-        {
-            ESP_LOGE(TAG, "couldnt take mutex over hx711 %s in cli_task_", field);
-        }
+        res = hx711_set_offset_raw(ctx.hx711, value);
     }
     else if (strcmp(field, "scale") == 0)
     {
-        if ( pdTRUE == xSemaphoreTake(ctx.hx711_mtx, portMAX_DELAY) )
-        {
-            res = hx711_set_scale_raw(ctx.hx711, value);
-            xSemaphoreGive(ctx.hx711_mtx);
-        }
-        else
-        {
-            ESP_LOGE(TAG, "couldnt take mutex over hx711 %s in cli_task_", field);
-        }
+        res = hx711_set_scale_raw(ctx.hx711, value);
     }
     else
     {
+        xSemaphoreGive(ctx.hx711_mtx);
         return CLI_MODULE_ERR;
     }
 
-    if (res != HX711_OK)
+    xSemaphoreGive(ctx.hx711_mtx);
+
+    cli_err_t mapped = map_hx711_err_(res);
+    if (mapped != CLI_OK)
     {
         ESP_LOGE(TAG, "`set` failed with error (%d)", res);
-        return CLI_UNEXPECTED_ERR;
+        return mapped;
     }
 
     return send_hx711_value_(uart, field, value);
