@@ -28,7 +28,7 @@ block_forever_()
 static void
 mutex_create_check_(SemaphoreHandle_t * mtx, const char * mtx_nm)
 {
-    if ( mtx_nm == nullptr )
+    if ( mtx == nullptr || mtx_nm == nullptr )
     {
         ESP_LOGE(TAG, "mutex_create wrong arg");
         block_forever_();
@@ -146,23 +146,23 @@ app_main()
     ESP_LOGI(TAG, "program started");
 
     // Init HX711 module
-    hx711_t hx711;
-    SemaphoreHandle_t hx711_mtx;
+    static hx711_t hx711;
+    static SemaphoreHandle_t hx711_mtx;
     init_hx711_or_die_(&hx711, &hx711_mtx);
 
     // Init Measurement object
-    Measurement meas;
-    SemaphoreHandle_t meas_mtx;
+    static Measurement meas;
+    static SemaphoreHandle_t meas_mtx;
     mutex_create_check_(&meas_mtx, "meas");
 
-    QueueHandle_t cli_queue = xQueueCreate(8, CLI_RX_LINE_MAX);
+    static QueueHandle_t cli_queue = xQueueCreate(8, CLI_RX_LINE_MAX);
     if ( !cli_queue )
     {
         ESP_LOGE(TAG, "cli queue init failed");
         block_forever_();
     }
 
-    Context ctx = {
+    static Context ctx = {
         .hx711 = &hx711,
         .meas = &meas,
         .hx711_mtx = hx711_mtx,
@@ -176,21 +176,21 @@ app_main()
     if ( UART_OK != uart_res )
     {
         ESP_LOGE(TAG, "uart init failed with error: %d", uart_res);
-        for (;;) { vTaskDelay(portMAX_DELAY); }
+        block_forever_();
     }
 
     uart_res = uart_set_callback(&uart, uart_cli_bridge_, &cli);
     if ( UART_OK != uart_res )
     {
         ESP_LOGE(TAG, "uart set callback failed with error: %d", uart_res);
-        for (;;) { vTaskDelay(portMAX_DELAY); }
+        block_forever_();
     }
 
     uart_res = uart_start_task(&uart);
     if ( UART_OK != uart_res )
     {
         ESP_LOGE(TAG, "uart start task failed with error: %d", uart_res);
-        for (;;) { vTaskDelay(portMAX_DELAY); }
+        block_forever_();
     }
 
     TaskHandle_t meas_handle = NULL;
@@ -199,28 +199,28 @@ app_main()
     if ( esp_res != ESP_OK )
     {
         ESP_LOGE(TAG, "gpio set intr type failed with error: %d", esp_res);
-        for (;;) { vTaskDelay(portMAX_DELAY); }
+        block_forever_();
     }
 
     esp_res = gpio_install_isr_service(0);
     if ( esp_res != ESP_OK )
     {
         ESP_LOGE(TAG, "gpio install isr service failed with error: %d", esp_res);
-        for (;;) { vTaskDelay(portMAX_DELAY); }
+        block_forever_();
     }
 
     BaseType_t task_res = xTaskCreate(meas_task_, "MEAS", 2048, &ctx, 7, &meas_handle);
     if ( task_res != pdPASS )
     {
         ESP_LOGE(TAG, "gpio task create failed with error: %d", task_res);
-        for (;;) { vTaskDelay(portMAX_DELAY); }
+        block_forever_();
     }
 
     esp_res = gpio_isr_handler_add((gpio_num_t)hx711.ios.io_dout, hx711_dout_isr_handler, (void *)meas_handle);
     if ( esp_res != ESP_OK )
     {
         ESP_LOGE(TAG, "gpio add isr handler failed with error: %d", esp_res);
-        for (;;) { vTaskDelay(portMAX_DELAY); }
+        block_forever_();
     }
 
     char line[CLI_RX_LINE_MAX] = {};
