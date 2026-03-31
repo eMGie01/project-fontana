@@ -109,6 +109,7 @@ hx711_init_default(hx711_t * dev, hx711_hw_t * gpios)
     return HX711_OK;
 }
 
+
 hx711_status_t
 hx711_deinit(hx711_t * dev)
 {

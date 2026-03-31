@@ -7,16 +7,16 @@
 #include <cstddef>
 
 
+static constexpr size_t CLI_RX_LINE_MAX = 256;
+
+
 struct Context
 {
     hx711_t *hx711;
     Measurement *meas;
     SemaphoreHandle_t hx711_mtx;
     SemaphoreHandle_t meas_mtx;
-    SemaphoreHandle_t uart_tx_mtx;
 };
-
-static constexpr size_t CLI_RX_LINE_MAX = 256;
 
 
 enum cli_err_t 

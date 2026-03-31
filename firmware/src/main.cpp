@@ -18,6 +18,56 @@
 static const char * TAG = "MAIN";
 
 
+static void
+block_forever_()
+{
+    for (;;) { vTaskDelay(portMAX_DELAY); }
+}
+
+
+static void
+mutex_create_check_(SemaphoreHandle_t * mtx, const char * mtx_nm)
+{
+    if ( mtx_nm == nullptr )
+    {
+        ESP_LOGE(TAG, "mutex_create wrong arg");
+        block_forever_();
+    }
+
+    *mtx = xSemaphoreCreateMutex();
+    if ( *mtx == nullptr )
+    {
+        ESP_LOGE(TAG, "%s mutex is null", mtx_nm);
+        block_forever_();
+    }
+}
+
+
+static void
+init_hx711_or_die_(hx711_t * dev, SemaphoreHandle_t * mtx)
+{
+    if ( dev == nullptr || mtx == nullptr )
+    {
+        ESP_LOGE(TAG, "hx711 args are null");
+        block_forever_();
+    }
+
+    hx711_hw_t dev_hw = {
+        .io_sck = HX711_SCK,
+        .io_dout = HX711_DOUT
+    };
+
+    hx711_status_t dev_res = hx711_init_default(dev, &dev_hw);
+    if ( HX711_OK != dev_res )
+    {
+        ESP_LOGE(TAG, "hx711 init failed with error (%d)", dev_res);
+        block_forever_();
+    }
+
+    mutex_create_check_(mtx, "hx711");
+}
+
+
 static void 
 hx711_dout_isr_handler(void *arg)
 {
@@ -95,47 +145,31 @@ app_main()
 {
     ESP_LOGI(TAG, "program started");
 
+    // Init HX711 module
     hx711_t hx711;
-    hx711_hw_t hx711_hw = {
-        .io_sck = HX711_SCK,
-        .io_dout = HX711_DOUT
-    };
-    hx711_status_t hx_res = hx711_init_default(
-        &hx711,
-        &hx711_hw
-    );
-    if ( HX711_OK != hx_res )
-    {
-        ESP_LOGE(TAG, "hx711 init failed with error: %d", hx_res);
-        for (;;) { vTaskDelay(portMAX_DELAY); }
-    }
+    SemaphoreHandle_t hx711_mtx;
+    init_hx711_or_die_(&hx711, &hx711_mtx);
 
+    // Init Measurement object
     Measurement meas;
-
-    SemaphoreHandle_t hx711_mtx   = xSemaphoreCreateMutex();
-    SemaphoreHandle_t meas_mtx    = xSemaphoreCreateMutex();
-    SemaphoreHandle_t uart_tx_mtx = xSemaphoreCreateMutex();
-    if ( !hx711_mtx || !meas_mtx || !uart_tx_mtx )
-    {
-        ESP_LOGE(TAG, "mutexes init failed");
-        for (;;) { vTaskDelay(portMAX_DELAY); }
-    }
+    SemaphoreHandle_t meas_mtx;
+    mutex_create_check_(&meas_mtx, "meas");
 
     QueueHandle_t cli_queue = xQueueCreate(8, CLI_RX_LINE_MAX);
-    if ( cli_queue == NULL )
+    if ( !cli_queue )
     {
         ESP_LOGE(TAG, "cli queue init failed");
-        for (;;) { vTaskDelay(portMAX_DELAY); }
+        block_forever_();
     }
 
-    my_uart_t uart = uart_default_dev(NULL);
     Context ctx = {
         .hx711 = &hx711,
         .meas = &meas,
         .hx711_mtx = hx711_mtx,
-        .meas_mtx = meas_mtx,
-        .uart_tx_mtx = uart_tx_mtx
+        .meas_mtx = meas_mtx
     };
+
+    my_uart_t uart = uart_default_dev(NULL);
     CLI cli(uart, ctx, cli_queue);
 
     uart_err_t uart_res = uart_init(&uart);
