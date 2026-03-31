@@ -74,7 +74,7 @@ push (const char * data, size_t len)
                     printErr_(TAG, CLI_QUEUE_OVERFLOW, "process failed");
                 }
                 resetLine_();
-                return;
+                continue;
             }
 
             rx_line_[rx_len_++] = data[i];
