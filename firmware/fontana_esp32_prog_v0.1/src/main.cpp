@@ -1,4 +1,6 @@
+#include "cli_interface.hpp"
 #include "measurements.hpp"
+#include "my_uart.h"
 #include "hx711.h"
 
 #include "freertos/FreeRTOS.h"
@@ -10,62 +12,189 @@
 
 
 #define HX711_DOUT GPIO_NUM_2
-#define HX711_SCK  GPIO_NUM_4
+#define HX711_SCK  GPIO_NUM_3
 
 
 static const char * TAG = "MAIN";
 
 
-extern "C" void app_main() 
+static void 
+hx711_dout_isr_handler(void *arg)
+{
+    TaskHandle_t task_handle = (TaskHandle_t)arg;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    if (task_handle != NULL)
+    {
+        vTaskNotifyGiveFromISR(task_handle, &xHigherPriorityTaskWoken);
+    }
+
+    if (xHigherPriorityTaskWoken == pdTRUE)
+    {
+        portYIELD_FROM_ISR();
+    }
+}
+
+
+static void
+uart_cli_bridge_(void * ctx, const char * data, size_t len)
+{
+    if ( ctx != nullptr )
+    {
+        static_cast<CLI *>(ctx)->push(data, len);
+    }
+}
+
+
+static void
+meas_task_( void *pvParameters )
+{
+    Context *ctx = (Context *)pvParameters;
+    if ( !ctx || !ctx->hx711 || !ctx->meas || !ctx->hx711_mtx || !ctx->meas_mtx ) 
+    {
+        ESP_LOGE(TAG, "invalid context in meas_task_");
+        vTaskDelete(NULL);
+    }
+
+    int32_t value = 0;
+    for (;;)
+    {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        if ( pdTRUE == xSemaphoreTake(ctx->hx711_mtx, portMAX_DELAY) )
+        {
+            gpio_intr_disable((gpio_num_t)ctx->hx711->ios.io_dout);
+            hx711_status_t res = hx711_read_raw(ctx->hx711, &value);
+            gpio_intr_enable((gpio_num_t)ctx->hx711->ios.io_dout);
+
+            xSemaphoreGive(ctx->hx711_mtx);
+
+            if ( res == HX711_OK )
+            {
+                if ( pdTRUE == xSemaphoreTake(ctx->meas_mtx, portMAX_DELAY) )
+                {
+                    ctx->meas->pushRaw(value);
+                    xSemaphoreGive(ctx->meas_mtx);
+                }
+                else 
+                {
+                    ESP_LOGE(TAG, "couldnt take mutex over meas in meas_task_");
+                }
+            }
+        }
+        else 
+        {
+            ESP_LOGE(TAG, "couldnt take mutex over hx711 in meas_task_");
+        }
+    }
+}
+
+
+extern "C" void
+app_main()
 {
     ESP_LOGI(TAG, "program started");
 
-    /*init*/
     hx711_t hx711;
-    if (HX711_ERR_ARG == hx711_init(&hx711, HX711_DOUT, HX711_SCK, HX711_MODE_A_128)) {
-        ESP_LOGE(TAG, "initialization of hx711 failed with error: %d", HX711_ERR_ARG);
-        for (;;) { vTaskDelay(pdMS_TO_TICKS(1000)); }
-    }
-    
-
-    Measurement Meas;
-    Meas.setCountsPerMmHg(10735);
-    Meas.setAvgWindowSize(10);
-
-    int32_t raw_value = 0;
-    int64_t real_filtered_value = 0;
-    int64_t real_avg_value = 0;
-
-    /*main loop*/
-    for (;;) 
+    hx711_hw_t hx711_hw = {
+        .io_sck = HX711_SCK,
+        .io_dout = HX711_DOUT
+    };
+    hx711_status_t hx_res = hx711_init_default(
+        &hx711,
+        &hx711_hw
+    );
+    if ( HX711_OK != hx_res )
     {
-        vTaskDelay(pdMS_TO_TICKS(300));
+        ESP_LOGE(TAG, "hx711 init failed with error: %d", hx_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
 
-        if (hx711_is_ready(&hx711)) {
-            ESP_LOGD(TAG, "hx711 data is ready");
+    Measurement meas;
 
-            hx711_status_t read_raw_response = hx711_read_raw(&hx711, &raw_value);
-            if (HX711_OK != read_raw_response) {
-                ESP_LOGE(TAG, "reading value from HX711 failed with error: %d", read_raw_response);
-                continue;
-            }
+    SemaphoreHandle_t hx711_mtx   = xSemaphoreCreateMutex();
+    SemaphoreHandle_t meas_mtx    = xSemaphoreCreateMutex();
+    SemaphoreHandle_t uart_tx_mtx = xSemaphoreCreateMutex();
+    if ( !hx711_mtx || !meas_mtx || !uart_tx_mtx )
+    {
+        ESP_LOGE(TAG, "mutexes init failed");
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
 
-            ESP_LOGD(TAG, "raw_value got from hx711 driver: %d", raw_value);
+    QueueHandle_t cli_queue = xQueueCreate(8, CLI_RX_LINE_MAX);
+    if ( cli_queue == NULL )
+    {
+        ESP_LOGE(TAG, "cli queue init failed");
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
 
-            Meas.pushRaw(raw_value);
+    my_uart_t uart = uart_default_dev(NULL);
+    Context ctx = {
+        .hx711 = &hx711,
+        .meas = &meas,
+        .hx711_mtx = hx711_mtx,
+        .meas_mtx = meas_mtx,
+        .uart_tx_mtx = uart_tx_mtx
+    };
+    CLI cli(uart, ctx, cli_queue);
 
-            bool filtered_value_response = Meas.getFilteredValueX1000(real_filtered_value);
-            if (filtered_value_response) {
-                ESP_LOGD(TAG, "filtered_value: %lld", (long long)real_filtered_value);
-            }
+    uart_err_t uart_res = uart_init(&uart);
+    if ( UART_OK != uart_res )
+    {
+        ESP_LOGE(TAG, "uart init failed with error: %d", uart_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
 
-            bool avg_value_response = Meas.getAvgValueX1000(real_avg_value);
-            if (avg_value_response) {
-                ESP_LOGD(TAG, "avg_value: %lld", (long long)real_avg_value);
-            }
+    uart_res = uart_set_callback(&uart, uart_cli_bridge_, &cli);
+    if ( UART_OK != uart_res )
+    {
+        ESP_LOGE(TAG, "uart set callback failed with error: %d", uart_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
 
-        } else {
-            ESP_LOGD(TAG, "hx711 is not ready");
+    uart_res = uart_start_task(&uart);
+    if ( UART_OK != uart_res )
+    {
+        ESP_LOGE(TAG, "uart start task failed with error: %d", uart_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
+
+    TaskHandle_t meas_handle = NULL;
+
+    esp_err_t esp_res = gpio_set_intr_type((gpio_num_t)hx711.ios.io_dout, GPIO_INTR_NEGEDGE);
+    if ( esp_res != ESP_OK )
+    {
+        ESP_LOGE(TAG, "gpio set intr type failed with error: %d", esp_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
+
+    esp_res = gpio_install_isr_service(0);
+    if ( esp_res != ESP_OK )
+    {
+        ESP_LOGE(TAG, "gpio install isr service failed with error: %d", esp_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
+
+    BaseType_t task_res = xTaskCreate(meas_task_, "MEAS", 2048, &ctx, 7, &meas_handle);
+    if ( task_res != pdPASS )
+    {
+        ESP_LOGE(TAG, "gpio task create failed with error: %d", task_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
+
+    esp_res = gpio_isr_handler_add((gpio_num_t)hx711.ios.io_dout, hx711_dout_isr_handler, (void *)meas_handle);
+    if ( esp_res != ESP_OK )
+    {
+        ESP_LOGE(TAG, "gpio add isr handler failed with error: %d", esp_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
+
+    char line[CLI_RX_LINE_MAX] = {};
+    for (;;)
+    {
+        if ( xQueueReceive(cli_queue, line, portMAX_DELAY) == pdTRUE )
+        {
+            cli.process(line);
         }
     }
 }
