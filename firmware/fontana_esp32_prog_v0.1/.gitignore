@@ -4,3 +4,4 @@
 compile_commands.json
 build
 test
+sdkconfig.esp32-c6-devkitm-1

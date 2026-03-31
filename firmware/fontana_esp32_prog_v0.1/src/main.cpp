@@ -93,38 +93,34 @@ app_main()
     }
 
     TaskHandle_t meas_handle = NULL;
-
     esp_err_t esp_res = gpio_set_intr_type((gpio_num_t)hx711.ios.io_dout, GPIO_INTR_NEGEDGE);
     if ( esp_res != ESP_OK )
     {
-        ESP_LOGE(TAG, "setting intr on io failed with error: %d", esp_res);
+        ESP_LOGE(TAG, "gpio set intr type failed with error: %d", esp_res);
         for (;;) { vTaskDelay(portMAX_DELAY); }
     }
-
     esp_res = gpio_install_isr_service(0);
     if ( esp_res != ESP_OK )
     {
-        ESP_LOGE(TAG, "installing isr service failed with error: %d", esp_res);
+        ESP_LOGE(TAG, "gpio install isr service failed with error: %d", esp_res);
         for (;;) { vTaskDelay(portMAX_DELAY); }
     }
-
     BaseType_t task_res = xTaskCreate(meas_task_, "MEAS", 2048, &ctx, 7, &meas_handle);
-    if ( task_res != pdTRUE )
+    if ( task_res != pdPASS )
     {
-        ESP_LOGE(TAG, "creating task failed with error: %d", task_res);
-        for (;;) { vTaskDelay(portMAX_DELAY); } 
+        ESP_LOGE(TAG, "gpio task create failed with error: %d", task_res);
+        for (;;) { vTaskDelay(portMAX_DELAY); }
     }
-
     esp_res = gpio_isr_handler_add((gpio_num_t)hx711.ios.io_dout, hx711_dout_isr_handler, (void *)meas_handle);
     if ( esp_res != ESP_OK )
     {
-        ESP_LOGE(TAG, "installing isr handler failed with error: %d", esp_res);
+        ESP_LOGE(TAG, "gpio add isr handler failed with error: %d", esp_res);
         for (;;) { vTaskDelay(portMAX_DELAY); }
     }
 
-    char line[MAX_EVENT_BUFF_SIZE] = {};
     for (;;)
     {
+        char line[MAX_EVENT_BUFF_SIZE] = {};
         if ( xQueueReceive(cli_queue, line, portMAX_DELAY) == pdTRUE )
         {
             cli.process(line);

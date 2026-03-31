@@ -16,8 +16,8 @@ uart_default_dev(uart_rx_cb_t cb)
                 .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
             },
             .ios = (uart_hw_t) {
-                .rx = GPIO_NUM_3,
-                .tx = GPIO_NUM_1
+                .rx = GPIO_NUM_17,
+                .tx = GPIO_NUM_16
             },
             .settings = (uart_set_t) {
                 .name = "uart_def",
