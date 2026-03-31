@@ -28,8 +28,8 @@ public:
 
     void pushRaw(int32_t raw);
 
-    meas_err_t getFilteredValueX1000(int32_t& value) const; 
-    meas_err_t getAvgValueX1000(int32_t& value) const;
+    meas_err_t getFilteredValueX1000(int32_t& value); 
+    meas_err_t getAvgValueX1000(int32_t& value);
 
 private:
     int32_t offset_raw_;
@@ -38,13 +38,13 @@ private:
     int32_t filtered_raw_;
     uint8_t iir_shift_;
     bool first_sample_;
-    mutable bool filt_value_ready_;
+    bool filt_value_ready_;
 
-    int32_t avg_sum_raw_;
+    int64_t avg_sum_raw_;
      uint16_t avg_count_;
     uint16_t avg_window_size_;
     int32_t avg_raw_;
-    mutable bool avg_value_ready_;
+    bool avg_value_ready_;
 
 };
 

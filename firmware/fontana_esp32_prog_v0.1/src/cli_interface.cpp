@@ -23,7 +23,7 @@ CLI(my_uart_t& uart, Context& ctx, QueueHandle_t queue) :
     overflow_(false),
     echo_(false)
 {
-    memset(rx_line_, '\0', RX_LINE_MAX);
+    memset(rx_line_, '\0', CLI_RX_LINE_MAX);
 }
 
 
@@ -56,7 +56,7 @@ push (const char * data, size_t len)
                 }
             }
 
-            if ( rx_len_ >= RX_LINE_MAX - 1 )
+            if ( rx_len_ >= CLI_RX_LINE_MAX - 1 )
             {
                 overflow_ = true;
                 continue;

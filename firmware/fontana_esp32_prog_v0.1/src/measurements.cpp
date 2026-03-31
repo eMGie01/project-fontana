@@ -113,7 +113,7 @@ pushRaw(int32_t raw)
 
 
 meas_err_t Measurement::
-getFilteredValueX1000(int32_t& value) const 
+getFilteredValueX1000(int32_t& value) 
 {
     if ( scale_x1000_ > 0 && filt_value_ready_ )
     {
@@ -127,7 +127,7 @@ getFilteredValueX1000(int32_t& value) const
 
 
 meas_err_t Measurement::
-getAvgValueX1000(int32_t& value) const 
+getAvgValueX1000(int32_t& value) 
 {
     if (scale_x1000_ == 0)
     {

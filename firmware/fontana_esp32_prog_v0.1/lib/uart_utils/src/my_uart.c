@@ -40,16 +40,16 @@ uart_event_task_ (void * pvParameters)
             {
 
                 case UART_DATA:
-
-                    size_t len = (size_t)uart_read_bytes(
+                    size_t to_read = MIN((size_t)event.size, sizeof(rx_buffer));
+                    int len = uart_read_bytes(
                         self->config.port, 
                         rx_buffer, 
-                        MIN(MAX_EVENT_BUFF_SIZE, event.size), 
+                        to_read, 
                         portMAX_DELAY
                     );
-                    if ( 0 < len && self->config.callback != NULL)
+                    if ( len > 0 && self->config.callback != NULL)
                     {
-                        self->config.callback(self->config.ctx, rx_buffer, len);
+                        self->config.callback(self->config.ctx, rx_buffer, (size_t)len);
                     } 
                     // else 
                     // {

@@ -66,11 +66,27 @@ hx711_handle_get_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 
     if (strcmp(field, "offset") == 0)
     {
-        res = hx711_get_offset_raw(ctx.hx711, &value);
+        if ( pdTRUE == xSemaphoreTake(ctx.hx711_mtx, portMAX_DELAY) )
+        {
+            res = hx711_get_offset_raw(ctx.hx711, &value);
+            xSemaphoreGive(ctx.hx711_mtx);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "couldnt take mutex over hx711 %s in cli_task_", field);
+        }
     }
     else if (strcmp(field, "scale") == 0)
     {
-        res = hx711_get_scale_raw(ctx.hx711, &value);
+        if ( pdTRUE == xSemaphoreTake(ctx.hx711_mtx, portMAX_DELAY) )
+        {
+            res = hx711_get_scale_raw(ctx.hx711, &value);
+            xSemaphoreGive(ctx.hx711_mtx);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "couldnt take mutex over hx711 %s in cli_task_", field);
+        }
     }
     else
     {
@@ -79,7 +95,7 @@ hx711_handle_get_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 
     if (res != HX711_OK)
     {
-        ESP_LOGE(TAG, "`set` failed with error (%d)", res);
+        ESP_LOGE(TAG, "`get` failed with error (%d)", res);
         return CLI_UNEXPECTED_ERR;
     }
 
@@ -107,11 +123,27 @@ hx711_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 
     if (strcmp(field, "offset") == 0)
     {
-        res = hx711_set_offset_raw(ctx.hx711, value);
+        if ( pdTRUE == xSemaphoreTake(ctx.hx711_mtx, portMAX_DELAY) )
+        {
+            res = hx711_set_offset_raw(ctx.hx711, value);
+            xSemaphoreGive(ctx.hx711_mtx);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "couldnt take mutex over hx711 %s in cli_task_", field);
+        }
     }
     else if (strcmp(field, "scale") == 0)
     {
-        res = hx711_set_scale_raw(ctx.hx711, value);
+        if ( pdTRUE == xSemaphoreTake(ctx.hx711_mtx, portMAX_DELAY) )
+        {
+            res = hx711_set_scale_raw(ctx.hx711, value);
+            xSemaphoreGive(ctx.hx711_mtx);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "couldnt take mutex over hx711 %s in cli_task_", field);
+        }
     }
     else
     {
@@ -131,7 +163,7 @@ hx711_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 cli_err_t
 hx711_handle(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 {
-    if (!tokens || !ctx.hx711)
+    if (!tokens || !ctx.hx711 || !ctx.hx711_mtx)
     {
         return CLI_INVALID_ARG_ERR;
     }

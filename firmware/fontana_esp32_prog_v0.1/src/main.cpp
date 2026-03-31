@@ -18,11 +18,22 @@
 static const char * TAG = "MAIN";
 
 
-/**
- * TASKS
- */
-static void IRAM_ATTR hx711_dout_isr_handler(void *arg);
-static void meas_task_( void *pvParameters );
+static void 
+hx711_dout_isr_handler(void *arg)
+{
+    TaskHandle_t task_handle = (TaskHandle_t)arg;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    if (task_handle != NULL)
+    {
+        vTaskNotifyGiveFromISR(task_handle, &xHigherPriorityTaskWoken);
+    }
+
+    if (xHigherPriorityTaskWoken == pdTRUE)
+    {
+        portYIELD_FROM_ISR();
+    }
+}
 
 
 static void
@@ -31,6 +42,50 @@ uart_cli_bridge_(void * ctx, const char * data, size_t len)
     if ( ctx != nullptr )
     {
         static_cast<CLI *>(ctx)->push(data, len);
+    }
+}
+
+
+static void
+meas_task_( void *pvParameters )
+{
+    Context *ctx = (Context *)pvParameters;
+    if ( !ctx || !ctx->hx711 || !ctx->meas || !ctx->hx711_mtx || !ctx->meas_mtx ) 
+    {
+        ESP_LOGE(TAG, "invalid context in meas_task_");
+        vTaskDelete(NULL);
+    }
+
+    int32_t value = 0;
+    for (;;)
+    {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        if ( pdTRUE == xSemaphoreTake(ctx->hx711_mtx, portMAX_DELAY) )
+        {
+            gpio_intr_disable((gpio_num_t)ctx->hx711->ios.io_dout);
+            hx711_status_t res = hx711_read_raw(ctx->hx711, &value);
+            gpio_intr_enable((gpio_num_t)ctx->hx711->ios.io_dout);
+
+            xSemaphoreGive(ctx->hx711_mtx);
+
+            if ( res == HX711_OK )
+            {
+                if ( pdTRUE == xSemaphoreTake(ctx->meas_mtx, portMAX_DELAY) )
+                {
+                    ctx->meas->pushRaw(value);
+                    xSemaphoreGive(ctx->meas_mtx);
+                }
+                else 
+                {
+                    ESP_LOGE(TAG, "couldnt take mutex over meas in meas_task_");
+                }
+            }
+        }
+        else 
+        {
+            ESP_LOGE(TAG, "couldnt take mutex over hx711 in meas_task_");
+        }
     }
 }
 
@@ -57,7 +112,16 @@ app_main()
 
     Measurement meas;
 
-    QueueHandle_t cli_queue = xQueueCreate(8, MAX_EVENT_BUFF_SIZE);
+    SemaphoreHandle_t hx711_mtx   = xSemaphoreCreateMutex();
+    SemaphoreHandle_t meas_mtx    = xSemaphoreCreateMutex();
+    SemaphoreHandle_t uart_tx_mtx = xSemaphoreCreateMutex();
+    if ( !hx711_mtx || !meas_mtx || !uart_tx_mtx )
+    {
+        ESP_LOGE(TAG, "mutexes init failed");
+        for (;;) { vTaskDelay(portMAX_DELAY); }
+    }
+
+    QueueHandle_t cli_queue = xQueueCreate(8, CLI_RX_LINE_MAX);
     if ( cli_queue == NULL )
     {
         ESP_LOGE(TAG, "cli queue init failed");
@@ -67,7 +131,10 @@ app_main()
     my_uart_t uart = uart_default_dev(NULL);
     Context ctx = {
         .hx711 = &hx711,
-        .meas = &meas
+        .meas = &meas,
+        .hx711_mtx = hx711_mtx,
+        .meas_mtx = meas_mtx,
+        .uart_tx_mtx = uart_tx_mtx
     };
     CLI cli(uart, ctx, cli_queue);
 
@@ -93,24 +160,28 @@ app_main()
     }
 
     TaskHandle_t meas_handle = NULL;
+
     esp_err_t esp_res = gpio_set_intr_type((gpio_num_t)hx711.ios.io_dout, GPIO_INTR_NEGEDGE);
     if ( esp_res != ESP_OK )
     {
         ESP_LOGE(TAG, "gpio set intr type failed with error: %d", esp_res);
         for (;;) { vTaskDelay(portMAX_DELAY); }
     }
+
     esp_res = gpio_install_isr_service(0);
     if ( esp_res != ESP_OK )
     {
         ESP_LOGE(TAG, "gpio install isr service failed with error: %d", esp_res);
         for (;;) { vTaskDelay(portMAX_DELAY); }
     }
+
     BaseType_t task_res = xTaskCreate(meas_task_, "MEAS", 2048, &ctx, 7, &meas_handle);
     if ( task_res != pdPASS )
     {
         ESP_LOGE(TAG, "gpio task create failed with error: %d", task_res);
         for (;;) { vTaskDelay(portMAX_DELAY); }
     }
+
     esp_res = gpio_isr_handler_add((gpio_num_t)hx711.ios.io_dout, hx711_dout_isr_handler, (void *)meas_handle);
     if ( esp_res != ESP_OK )
     {
@@ -118,54 +189,12 @@ app_main()
         for (;;) { vTaskDelay(portMAX_DELAY); }
     }
 
+    char line[CLI_RX_LINE_MAX] = {};
     for (;;)
     {
-        char line[MAX_EVENT_BUFF_SIZE] = {};
         if ( xQueueReceive(cli_queue, line, portMAX_DELAY) == pdTRUE )
         {
             cli.process(line);
         }
-    }
-}
-
-
-
-static void 
-hx711_dout_isr_handler(void *arg)
-{
-    TaskHandle_t task_handle = (TaskHandle_t)arg;
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
-    if (task_handle != NULL)
-    {
-        vTaskNotifyGiveFromISR(task_handle, &xHigherPriorityTaskWoken);
-    }
-
-    if (xHigherPriorityTaskWoken == pdTRUE)
-    {
-        portYIELD_FROM_ISR();
-    }
-}
-
-
-static void
-meas_task_( void *pvParameters )
-{
-    Context *ctx = (Context *)pvParameters;
-    int32_t value = 0;
-
-    for (;;)
-    {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-        gpio_intr_disable((gpio_num_t)ctx->hx711->ios.io_dout);
-
-        hx711_status_t res = hx711_read_raw(ctx->hx711, &value);
-        if ( res == HX711_OK )
-        {
-            ctx->meas->pushRaw(value);
-        }
-
-        gpio_intr_enable((gpio_num_t)ctx->hx711->ios.io_dout);
     }
 }

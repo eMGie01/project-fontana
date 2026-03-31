@@ -4,13 +4,19 @@
 #include "measurements.hpp"
 #include "hx711.h"
 #include "my_uart.h"
+#include <cstddef>
 
 
 struct Context
 {
     hx711_t *hx711;
     Measurement *meas;
+    SemaphoreHandle_t hx711_mtx;
+    SemaphoreHandle_t meas_mtx;
+    SemaphoreHandle_t uart_tx_mtx;
 };
+
+static constexpr size_t CLI_RX_LINE_MAX = 256;
 
 
 enum cli_err_t 
@@ -25,7 +31,8 @@ enum cli_err_t
     CLI_SEND_RES_ERR,
     CLI_MODULE_ERR,
     CLI_TOO_LITTLE_TOKENS,
-    CLI_QUEUE_OVERFLOW
+    CLI_QUEUE_OVERFLOW,
+    CLI_MUTEX_ERR
 };
 
 
@@ -57,8 +64,7 @@ private:
     bool overflow_;
     bool echo_;
 
-    static constexpr size_t RX_LINE_MAX = 128;
-    char rx_line_[RX_LINE_MAX];
+    char rx_line_[CLI_RX_LINE_MAX];
 
 };
 

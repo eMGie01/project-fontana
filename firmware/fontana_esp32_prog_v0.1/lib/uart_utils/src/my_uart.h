@@ -12,7 +12,7 @@ extern "C" {
 
 
 // Defines
-#define MAX_EVENT_BUFF_SIZE 512
+#define MAX_EVENT_BUFF_SIZE 256
 
 // Enums
 typedef enum
