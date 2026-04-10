@@ -17,6 +17,14 @@
 
 static const char * TAG = "MAIN";
 
+// structure temporary
+struct meas_task_args
+{
+    CLI *cli;
+    Context *ctx;
+};
+// 
+
 
 static void
 block_forever_()
@@ -99,14 +107,28 @@ uart_cli_bridge_(void * ctx, const char * data, size_t len)
 static void
 meas_task_( void *pvParameters )
 {
-    Context *ctx = (Context *)pvParameters;
-    if ( !ctx || !ctx->hx711 || !ctx->meas || !ctx->hx711_mtx || !ctx->meas_mtx ) 
+    auto *args = static_cast<meas_task_args *>(pvParameters);
+    if ( args == nullptr)
     {
         ESP_LOGE(TAG, "invalid context in meas_task_");
         vTaskDelete(NULL);
+        return; 
+    }
+
+    CLI *cli = args->cli;
+    Context *ctx = args->ctx;
+    // Context *ctx = (Context *)pvParameters;
+    if ( !ctx || !ctx->hx711 || !ctx->meas || !ctx->hx711_mtx || !ctx->meas_mtx || !cli ) 
+    {
+        ESP_LOGE(TAG, "invalid context in meas_task_");
+        vTaskDelete(NULL);
+        return;
     }
 
     int32_t value = 0;
+    int64_t filt_val = 0;
+    int64_t avg_val = 0;
+    meas_err_t avg_res = MEAS_AVG_NOT_RDY;
     for (;;)
     {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -124,6 +146,8 @@ meas_task_( void *pvParameters )
                 if ( pdTRUE == xSemaphoreTake(ctx->meas_mtx, portMAX_DELAY) )
                 {
                     ctx->meas->pushRaw(value);
+                    ctx->meas->getFilteredValueX1000(filt_val);
+                    avg_res = ctx->meas->getAvgValueX1000(avg_val);
                     xSemaphoreGive(ctx->meas_mtx);
                 }
                 else 
@@ -135,6 +159,17 @@ meas_task_( void *pvParameters )
         else 
         {
             ESP_LOGE(TAG, "couldnt take mutex over hx711 in meas_task_");
+        }
+
+        char payload[128];
+        int length = snprintf(payload, sizeof(payload), 
+        "RAW_VAL: [%ld], FILT_VAL: [%lld], AVG_VAL: [%lld]\r\n",
+        (long)value, (long long)filt_val, (avg_res == MEAS_OK) ? (long long)avg_val : 0);
+
+        if ( length > 0 )
+        {
+            size_t pay_len = (length < (int)sizeof(payload)) ? (size_t)length : (sizeof(payload) - 1);
+            cli->printOut(payload, pay_len);
         }
     }
 }
@@ -209,7 +244,10 @@ app_main()
         block_forever_();
     }
 
-    BaseType_t task_res = xTaskCreate(meas_task_, "MEAS", 2048, &ctx, 7, &meas_handle);
+    // meas_task_args_
+    static meas_task_args meas_task_args_ = { &cli, &ctx };
+
+    BaseType_t task_res = xTaskCreate(meas_task_, "MEAS", 2048, &meas_task_args_, 7, &meas_handle);
     if ( task_res != pdPASS )
     {
         ESP_LOGE(TAG, "gpio task create failed with error: %d", task_res);

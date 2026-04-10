@@ -104,7 +104,7 @@ meas_handle_get_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
         return CLI_INVALID_ARG_ERR;
     }
 
-    int32_t value = 0;
+    int64_t value = 0;
     const char * field = tokens[2];
     cli_err_t lock_res = take_mutex_(ctx.meas_mtx, field);
     if (lock_res != CLI_OK)

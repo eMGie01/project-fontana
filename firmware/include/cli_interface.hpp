@@ -45,6 +45,7 @@ public:
 
     void push(const char * data, size_t len);
     void process(char * buff);
+    void printOut(const char * data, size_t len);
 
 private:
 

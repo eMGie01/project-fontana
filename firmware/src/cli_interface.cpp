@@ -106,6 +106,22 @@ process(char * line)
 }
 
 
+void CLI::
+printOut(const char * data, size_t len)
+{
+    if ( !data || len == 0)
+    {
+        ESP_LOGE(TAG, "printOut failed with error (%d)", CLI_INVALID_ARG_ERR);
+        return;
+    }
+
+    if ( uart_write_bytes(uart_.config.port, data, len) < 0 )
+    {
+        ESP_LOGE(TAG, "printOut failed with error (%d)", CLI_SEND_RES_ERR);
+    }
+}
+
+
 size_t CLI::
 tokenizeLine_(char ** tokens, char * line, size_t max_count)
 {
@@ -201,7 +217,7 @@ printHelp_()
 
     if ( uart_write_bytes(uart_.config.port, help_text, sizeof(help_text) - 1) < 0 )
     {
-        ESP_LOGE(TAG, "failed with error: %d", CLI_SEND_RES_ERR);
+        ESP_LOGE(TAG, "printHelp_ failed with error (%d)", CLI_SEND_RES_ERR);
     }
 }
 
@@ -229,6 +245,6 @@ printErr_(const char * module, const int err, const char * msg)
 
     if ( uart_write_bytes(uart_.config.port, payload, (size_t)length) < 0 )
     {
-        ESP_LOGE(TAG, "failed with error: %d", CLI_SEND_RES_ERR);
+        ESP_LOGE(TAG, "printErr_ failed with error (%d)", CLI_SEND_RES_ERR);
     }
 }
