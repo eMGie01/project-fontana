@@ -14,16 +14,11 @@
 #define HX711_DOUT GPIO_NUM_2
 #define HX711_SCK  GPIO_NUM_3
 
+static constexpr uint32_t CLI_QUEUE_LENGTH   = 8;
+static constexpr uint32_t SENSOR_TASK_STACK  = 2048;
+static constexpr UBaseType_t SENSOR_TASK_PRIO = 8;
 
 static const char * TAG = "MAIN";
-
-// structure temporary
-struct meas_task_args
-{
-    CLI *cli;
-    Context *ctx;
-};
-// 
 
 
 static void
@@ -76,18 +71,32 @@ init_hx711_or_die_(hx711_t * dev, SemaphoreHandle_t * mtx)
 }
 
 
-static void 
+static QueueHandle_t
+create_cli_queue_or_die_()
+{
+    QueueHandle_t queue = xQueueCreate(CLI_QUEUE_LENGTH, CLI_RX_LINE_MAX);
+    if ( !queue )
+    {
+        ESP_LOGE(TAG, "cli queue init failed");
+        block_forever_();
+    }
+
+    return queue;
+}
+
+
+static void
 hx711_dout_isr_handler(void *arg)
 {
     TaskHandle_t task_handle = (TaskHandle_t)arg;
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
-    if (task_handle != NULL)
+    if ( task_handle != NULL )
     {
         vTaskNotifyGiveFromISR(task_handle, &xHigherPriorityTaskWoken);
     }
 
-    if (xHigherPriorityTaskWoken == pdTRUE)
+    if ( xHigherPriorityTaskWoken == pdTRUE )
     {
         portYIELD_FROM_ISR();
     }
@@ -105,132 +114,47 @@ uart_cli_bridge_(void * ctx, const char * data, size_t len)
 
 
 static void
-meas_task_( void *pvParameters )
+init_uart_cli_or_die_(my_uart_t * uart, CLI * cli)
 {
-    auto *args = static_cast<meas_task_args *>(pvParameters);
-    if ( args == nullptr)
+    if ( uart == nullptr || cli == nullptr )
     {
-        ESP_LOGE(TAG, "invalid context in meas_task_");
-        vTaskDelete(NULL);
-        return; 
-    }
-
-    CLI *cli = args->cli;
-    Context *ctx = args->ctx;
-    // Context *ctx = (Context *)pvParameters;
-    if ( !ctx || !ctx->hx711 || !ctx->meas || !ctx->hx711_mtx || !ctx->meas_mtx || !cli ) 
-    {
-        ESP_LOGE(TAG, "invalid context in meas_task_");
-        vTaskDelete(NULL);
-        return;
-    }
-
-    int32_t value = 0;
-    int64_t filt_val = 0;
-    int64_t avg_val = 0;
-    meas_err_t avg_res = MEAS_AVG_NOT_RDY;
-    for (;;)
-    {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-        if ( pdTRUE == xSemaphoreTake(ctx->hx711_mtx, portMAX_DELAY) )
-        {
-            gpio_intr_disable((gpio_num_t)ctx->hx711->ios.io_dout);
-            hx711_status_t res = hx711_read_raw(ctx->hx711, &value);
-            gpio_intr_enable((gpio_num_t)ctx->hx711->ios.io_dout);
-
-            xSemaphoreGive(ctx->hx711_mtx);
-
-            if ( res == HX711_OK )
-            {
-                if ( pdTRUE == xSemaphoreTake(ctx->meas_mtx, portMAX_DELAY) )
-                {
-                    ctx->meas->pushRaw(value);
-                    ctx->meas->getFilteredValueX1000(filt_val);
-                    avg_res = ctx->meas->getAvgValueX1000(avg_val);
-                    xSemaphoreGive(ctx->meas_mtx);
-                }
-                else 
-                {
-                    ESP_LOGE(TAG, "couldnt take mutex over meas in meas_task_");
-                }
-            }
-        }
-        else 
-        {
-            ESP_LOGE(TAG, "couldnt take mutex over hx711 in meas_task_");
-        }
-
-        char payload[128];
-        int length = snprintf(payload, sizeof(payload), 
-        "RAW_VAL: [%ld], FILT_VAL: [%lld], AVG_VAL: [%lld]\r\n",
-        (long)value, (long long)filt_val, (avg_res == MEAS_OK) ? (long long)avg_val : 0);
-
-        if ( length > 0 )
-        {
-            size_t pay_len = (length < (int)sizeof(payload)) ? (size_t)length : (sizeof(payload) - 1);
-            cli->printOut(payload, pay_len);
-        }
-    }
-}
-
-
-extern "C" void
-app_main()
-{
-    ESP_LOGI(TAG, "program started");
-
-    // Init HX711 module
-    static hx711_t hx711;
-    static SemaphoreHandle_t hx711_mtx;
-    init_hx711_or_die_(&hx711, &hx711_mtx);
-
-    // Init Measurement object
-    static Measurement meas;
-    static SemaphoreHandle_t meas_mtx;
-    mutex_create_check_(&meas_mtx, "meas");
-
-    static QueueHandle_t cli_queue = xQueueCreate(8, CLI_RX_LINE_MAX);
-    if ( !cli_queue )
-    {
-        ESP_LOGE(TAG, "cli queue init failed");
+        ESP_LOGE(TAG, "uart/cli args are null");
         block_forever_();
     }
 
-    static Context ctx = {
-        .hx711 = &hx711,
-        .meas = &meas,
-        .hx711_mtx = hx711_mtx,
-        .meas_mtx = meas_mtx
-    };
-
-    my_uart_t uart = uart_default_dev(NULL);
-    CLI cli(uart, ctx, cli_queue);
-
-    uart_err_t uart_res = uart_init(&uart);
+    uart_err_t uart_res = uart_init(uart);
     if ( UART_OK != uart_res )
     {
         ESP_LOGE(TAG, "uart init failed with error: %d", uart_res);
         block_forever_();
     }
 
-    uart_res = uart_set_callback(&uart, uart_cli_bridge_, &cli);
+    uart_res = uart_set_callback(uart, uart_cli_bridge_, cli);
     if ( UART_OK != uart_res )
     {
         ESP_LOGE(TAG, "uart set callback failed with error: %d", uart_res);
         block_forever_();
     }
 
-    uart_res = uart_start_task(&uart);
+    uart_res = uart_start_task(uart);
     if ( UART_OK != uart_res )
     {
         ESP_LOGE(TAG, "uart start task failed with error: %d", uart_res);
         block_forever_();
     }
+}
 
-    TaskHandle_t meas_handle = NULL;
 
-    esp_err_t esp_res = gpio_set_intr_type((gpio_num_t)hx711.ios.io_dout, GPIO_INTR_NEGEDGE);
+static void
+init_hx711_irq_or_die_(const hx711_t * dev)
+{
+    if ( dev == nullptr )
+    {
+        ESP_LOGE(TAG, "hx711 irq init wrong arg");
+        block_forever_();
+    }
+
+    esp_err_t esp_res = gpio_set_intr_type((gpio_num_t)dev->ios.io_dout, GPIO_INTR_NEGEDGE);
     if ( esp_res != ESP_OK )
     {
         ESP_LOGE(TAG, "gpio set intr type failed with error: %d", esp_res);
@@ -243,24 +167,113 @@ app_main()
         ESP_LOGE(TAG, "gpio install isr service failed with error: %d", esp_res);
         block_forever_();
     }
+}
 
-    // meas_task_args_
-    static meas_task_args meas_task_args_ = { &cli, &ctx };
 
-    BaseType_t task_res = xTaskCreate(meas_task_, "MEAS", 2048, &meas_task_args_, 7, &meas_handle);
+static TaskHandle_t
+create_sensor_task_or_die_(Context * ctx)
+{
+    TaskHandle_t handle = NULL;
+    BaseType_t task_res = xTaskCreate(sensor_task_, "SENSOR", SENSOR_TASK_STACK, ctx, SENSOR_TASK_PRIO, &handle);
     if ( task_res != pdPASS )
     {
-        ESP_LOGE(TAG, "gpio task create failed with error: %d", task_res);
+        ESP_LOGE(TAG, "sensor task create failed with error: %d", task_res);
         block_forever_();
     }
 
-    esp_res = gpio_isr_handler_add((gpio_num_t)hx711.ios.io_dout, hx711_dout_isr_handler, (void *)meas_handle);
-    if ( esp_res != ESP_OK )
+    return handle;
+}
+
+
+static void
+add_hx711_isr_or_die_(const hx711_t * dev, TaskHandle_t notify_task)
+{
+    if ( dev == nullptr || notify_task == NULL )
+    {
+        ESP_LOGE(TAG, "add isr wrong args");
+        block_forever_();
+    }
+
+    esp_err_t esp_res = gpio_isr_handler_add((gpio_num_t)dev->ios.io_dout, hx711_dout_isr_handler, (void *)notify_task);
+    if ( esp_res != ESP_OK || esp_res != ESP_ERR_INVALID_STATE )
     {
         ESP_LOGE(TAG, "gpio add isr handler failed with error: %d", esp_res);
         block_forever_();
     }
+}
 
+
+static void
+sensor_task_( void *pvParameters )
+{
+    Context *ctx = (Context *)pvParameters;
+    if ( !ctx || !ctx->hx711 || !ctx->meas || !ctx->hx711_mtx || !ctx->meas_mtx )
+    {
+        ESP_LOGE(TAG, "invalid context in sensor_task_");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    int32_t adc_code = 0;
+    for (;;)
+    {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        if ( pdTRUE != xSemaphoreTake(ctx->hx711_mtx, portMAX_DELAY) )
+        {
+            ESP_LOGE(TAG, "couldnt take mutex over hx711 in sensor_task_");
+            continue;
+        }
+
+        gpio_intr_disable((gpio_num_t)ctx->hx711->ios.io_dout);
+        hx711_status_t res = hx711_read_raw(ctx->hx711, &adc_code);
+        gpio_intr_enable((gpio_num_t)ctx->hx711->ios.io_dout);
+        xSemaphoreGive(ctx->hx711_mtx);
+
+        if ( res != HX711_OK )
+        {
+            ESP_LOGE(TAG, "hx711 read failed: %d", res);
+            continue;
+        }
+        
+        (void)adc_code;
+    }
+}
+
+
+extern "C" void
+app_main()
+{
+    ESP_LOGI(TAG, "program started");
+
+    // Module init
+    static hx711_t hx711;
+    static SemaphoreHandle_t hx711_mtx;
+    init_hx711_or_die_(&hx711, &hx711_mtx);
+
+    static Measurement meas;
+    static SemaphoreHandle_t meas_mtx;
+    mutex_create_check_(&meas_mtx, "meas");
+
+    // Shared context + CLI
+    static QueueHandle_t cli_queue = create_cli_queue_or_die_();
+    static Context ctx = {
+        .hx711 = &hx711,
+        .meas = &meas,
+        .hx711_mtx = hx711_mtx,
+        .meas_mtx = meas_mtx
+    };
+
+    my_uart_t uart = uart_default_dev(NULL);
+    CLI cli(uart, ctx, cli_queue);
+    init_uart_cli_or_die_(&uart, &cli);
+
+    // Sensor task + IRQ binding
+    init_hx711_irq_or_die_(&hx711);
+    TaskHandle_t sensor_handle = create_sensor_task_or_die_(&ctx);
+    add_hx711_isr_or_die_(&hx711, sensor_handle);
+
+    // CLI processing loop
     char line[CLI_RX_LINE_MAX] = {};
     for (;;)
     {
