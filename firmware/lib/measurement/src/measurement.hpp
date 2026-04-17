@@ -1,5 +1,5 @@
-#ifndef MEASUREMENTS_HPP
-#define MEASUREMENTS_HPP
+#ifndef MEASUREMENT_HPP
+#define MEASUREMENT_HPP
 
 #include <cstdint>
 
@@ -49,4 +49,4 @@ private:
 };
 
 
-#endif /* MEASUREMENTS_HPP */
+#endif /* MEASUREMENT_HPP */

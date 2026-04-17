@@ -1,7 +1,7 @@
 #ifndef CLI_INTERFACE_HPP
 #define CLI_INTERFACE_HPP
 
-#include "measurements.hpp"
+#include "measurement.hpp"
 #include "hx711.h"
 #include "my_uart.h"
 #include <cstddef>
