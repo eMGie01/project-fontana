@@ -7,10 +7,9 @@
 #include "esp_log.h"
 
 
-
-#define FLUSH_RESET(s)                  \
-    do {                                \
-        uart_flush_input(s->config.port);      \
+#define FLUSH_RESET(s)                          \
+    do {                                        \
+        uart_flush_input(s->config.port);       \
         xQueueReset(s->runtime.handles.queue);  \
     } while (0)
 
@@ -40,6 +39,7 @@ uart_event_task_ (void * pvParameters)
             {
 
                 case UART_DATA:
+
                     size_t to_read = MIN((size_t)event.size, sizeof(rx_buffer));
                     int len = uart_read_bytes(
                         self->config.port, 
@@ -47,14 +47,12 @@ uart_event_task_ (void * pvParameters)
                         to_read, 
                         portMAX_DELAY
                     );
+
                     if ( len > 0 && self->config.callback != NULL)
                     {
                         self->config.callback(self->config.ctx, rx_buffer, (size_t)len);
-                    } 
-                    // else 
-                    // {
-                    //     uart_write_bytes(self->config.port, rx_buffer, len);
-                    // }
+                    }
+
                     break;
 
                 case UART_FIFO_OVF:

@@ -15,6 +15,8 @@ read_raw_(hx711_t * dev, int32_t * value)
 {
     uint32_t raw_adc_value = 0;
 
+    dev->data_ready = 0;
+
     for (uint8_t i = 0; i < ADC_BIT_COUNT; ++i)
     {
 
@@ -49,7 +51,7 @@ read_raw_(hx711_t * dev, int32_t * value)
 
     *value = (raw_adc_value & 0x800000) ? (int32_t)(raw_adc_value | 0xFF000000) : (int32_t)raw_adc_value;
     dev->last_raw = *value;
-
+    
     return HX711_OK;
 }
 
@@ -160,6 +162,51 @@ hx711_read_raw_with_timeout(hx711_t * dev, int32_t * value)
         
         return read_raw_(dev, value);
 
+    }
+
+    return HX711_TIMEOUT;
+}
+
+hx711_status_t
+hx711_read_raw_isr(hx711_t * dev, int32_t * value)
+{
+    if ( !dev || !value )
+    {
+        return HX711_INVALID_ARG;
+    }
+
+    if ( !dev->initialized )
+    {
+        return HX711_NOT_INITIALIZED;
+    }
+
+    if ( HX711_MODE_MIN > dev->settings.mode || HX711_MODE_MAX < dev->settings.mode )
+    {
+        return HX711_INVALID_ARG;
+    }
+
+    if ( 0 != gpio_get_level(dev->ios.io_sck) )
+    {
+        if ( ESP_OK != gpio_set_level(dev->ios.io_sck, 0) )
+        {
+            return HX711_HW_ERR;
+        }
+    }
+
+    TickType_t checkpoint = xTaskGetTickCount();
+    while ( (TickType_t)dev->settings.timeout_ms >= pdTICKS_TO_MS( xTaskGetTickCount() - checkpoint) )
+    {
+
+        if ( true != dev->data_ready )
+        {
+            vTaskDelay(1);
+            continue;
+        }
+
+        gpio_intr_disable((gpio_num_t)dev->ios.io_dout);
+        hx711_status_t res = read_raw_(dev, value);
+        gpio_intr_enable((gpio_num_t)dev->ios.io_dout);
+        return res;
     }
 
     return HX711_TIMEOUT;

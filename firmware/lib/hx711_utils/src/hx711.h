@@ -27,6 +27,7 @@ typedef enum
     HX711_NOT_INITIALIZED,
     HX711_TIMEOUT,
     HX711_HW_ERR,
+    HX711_ISR_ERR,
     HX711_NOT_READY
 } hx711_status_t;
 
@@ -51,22 +52,25 @@ typedef struct
 
 typedef struct 
 {
-    hx711_hw_t  ios;
-    hx711_set_t settings;
-    hx711_cal_t calib;
-    int32_t     last_raw;
-    bool        initialized;
+    volatile bool data_ready;
+    hx711_hw_t    ios;
+    hx711_set_t   settings;
+    hx711_cal_t   calib;
+    int32_t       last_raw;
+    bool          initialized;
 } hx711_t;
 
 
 // Functions
 hx711_status_t hx711_init(hx711_t * dev, hx711_hw_t * gpios, const hx711_set_t * settings);
+hx711_status_t hx711_init_with_isr(hx711_t * dev, hx711_hw_t * gpios, const hx711_set_t * settings);
 hx711_status_t hx711_init_default(hx711_t * dev, hx711_hw_t * gpios);
 hx711_status_t hx711_deinit(hx711_t * dev);
 
 hx711_status_t hx711_is_ready(const hx711_t * dev);
 hx711_status_t hx711_read_raw(hx711_t * dev, int32_t * value);
 hx711_status_t hx711_read_raw_with_timeout(hx711_t * dev, int32_t * value);
+hx711_status_t hx711_read_raw_isr(hx711_t * dev, int32_t * value);
 
 hx711_status_t hx711_set_offset_raw(hx711_t * dev, const int32_t offset);
 hx711_status_t hx711_get_offset_raw(const hx711_t * dev, int32_t * value);
