@@ -1,8 +1,12 @@
 #ifndef _TASK_STRUCTURES_HPP
 #define _TASK_STRUCUTRES_HPP
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
 #include "hx711.h"
 #include "measurement.hpp"
+#include "snapshot.h"
 
 
 typedef enum
@@ -17,7 +21,7 @@ typedef struct
 {
     hx711_t * adc;
     Measurement * meas;
-    Snapshot * snapshot;
+    snapshot_t * snap;
     SemaphoreHandle_t meas_mtx;
 } task_meas_ctx_t;
 
