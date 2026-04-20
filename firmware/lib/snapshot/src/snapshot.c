@@ -1,9 +1,5 @@
 #include "snapshot.h"
 
-
-static const char * TAG = "SNAP";
-
-
 snapshot_err_t
 snapshot_init(snapshot_t * snap)
 {
