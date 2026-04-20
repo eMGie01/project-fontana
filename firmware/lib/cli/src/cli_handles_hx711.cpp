@@ -108,13 +108,15 @@ hx711_handle_get_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
         return lock_res;
     }
 
-    if (strcmp(field, "offset") == 0)
+    if (strcmp(field, "mode") == 0)
     {
-        res = hx711_get_offset_raw(ctx.hx711, &value);
+        ESP_LOGW(TAG, "no handle for this command yet");
+        res = HX711_UNEXPECTED_ERR;
     }
-    else if (strcmp(field, "scale") == 0)
+    else if (strcmp(field, "timeout") == 0)
     {
-        res = hx711_get_scale_raw(ctx.hx711, &value);
+        ESP_LOGW(TAG, "no handle for this command yet");
+        res = HX711_UNEXPECTED_ERR;
     }
     else
     {
@@ -158,13 +160,15 @@ hx711_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
         return lock_res;
     }
 
-    if (strcmp(field, "offset") == 0)
+    if (strcmp(field, "mode") == 0)
     {
-        res = hx711_set_offset_raw(ctx.hx711, value);
+        ESP_LOGW(TAG, "no handle for this command yet");
+        res = HX711_UNEXPECTED_ERR;
     }
-    else if (strcmp(field, "scale") == 0)
+    else if (strcmp(field, "timeout") == 0)
     {
-        res = hx711_set_scale_raw(ctx.hx711, value);
+        ESP_LOGW(TAG, "no handle for this command yet");
+        res = HX711_UNEXPECTED_ERR;
     }
     else
     {
