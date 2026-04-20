@@ -18,9 +18,10 @@ extern void taskMeas(void * pvParameters);
 // Variables
 static const char * TAG = "APP";
 
-static hx711_t hx711 = {0};
+static hx711_t hx711;
 static Measurement measurement;
 static task_meas_ctx_t meas_ctx;
+static snapshot_t snapshot;
 
 
 // App Init
@@ -39,10 +40,18 @@ app_init()
         esp_restart();
     }
 
+    // Init Snapshot
+    res = (int)snapshot_init(&snapshot);
+    if ( SNAP_OK != res )
+    {
+        ESP_LOGE(TAG, "failed to init snapshot with error (%d)", res);
+        esp_restart();
+    }
+
     // Init Measurement instance with mutex
-    SemaphoreHandle_t meas_mutex = xSemaphoreCreateBinary();
+    SemaphoreHandle_t meas_mutex = xSemaphoreCreateMutex();
 
     // Init Measurement context and task
-    meas_ctx = { .adc = &hx711, .meas = &measurement, .meas_mtx = meas_mutex};
+    meas_ctx = { .adc = &hx711, .meas = &measurement, .snap = &snapshot, .meas_mtx = meas_mutex};
     xTaskCreate(taskMeas, "MEAS", 2048, (void *)&meas_ctx, 8, NULL);
 }
