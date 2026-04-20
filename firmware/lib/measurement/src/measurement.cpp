@@ -40,6 +40,7 @@ setOffsetRaw(int32_t offset)
 }
 
 
+// change names to uHg 
 meas_err_t Measurement::
 setCountsPerMmHgX1000(int32_t scale) 
 {
@@ -84,7 +85,7 @@ setAvgWindowSize(uint16_t window_size)
 
 
 void Measurement::
-pushRaw(int32_t raw) 
+pushRaw(int32_t raw)
 {
     int32_t raw_cor = raw - offset_raw_;
 

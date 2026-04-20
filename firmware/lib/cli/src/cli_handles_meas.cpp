@@ -172,6 +172,7 @@ meas_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
             return lock_res;
         }
         ctx.meas->setOffsetRaw(value);
+        
         xSemaphoreGive(ctx.meas_mtx);
         return CLI_OK;
     }
