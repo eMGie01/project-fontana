@@ -92,7 +92,7 @@ parse_int32_(const char * text, int32_t * out_value)
 
 
 static cli_err_t
-hx711_handle_get_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
+hx711_handle_get_(char ** tokens, size_t count, cli_ctx_t& ctx, my_uart_t& uart)
 {
     if (count < 3)
     {
@@ -138,7 +138,7 @@ hx711_handle_get_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 
 
 static cli_err_t
-hx711_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
+hx711_handle_set_(char ** tokens, size_t count, cli_ctx_t& ctx, my_uart_t& uart)
 {
     if (count < 4)
     {
@@ -190,7 +190,7 @@ hx711_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 
 
 cli_err_t
-hx711_handle(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
+hx711_handle(char ** tokens, size_t count, cli_ctx_t& ctx, my_uart_t& uart)
 {
     if (!tokens || !ctx.hx711 || !ctx.hx711_mtx)
     {

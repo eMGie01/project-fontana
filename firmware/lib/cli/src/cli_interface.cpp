@@ -15,7 +15,7 @@ static const char * TAG = "CLI";
 
 
 CLI::
-CLI(my_uart_t& uart, Context& ctx, QueueHandle_t queue) :
+CLI(my_uart_t& uart, cli_ctx_t& ctx, QueueHandle_t queue) :
     uart_(uart),
     ctx_(ctx),
     queue_(queue),

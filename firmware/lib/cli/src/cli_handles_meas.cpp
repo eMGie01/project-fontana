@@ -92,7 +92,7 @@ parse_int32_(const char * text, int32_t * out_value)
 
 
 static cli_err_t
-meas_handle_get_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
+meas_handle_get_(char ** tokens, size_t count, cli_ctx_t& ctx, my_uart_t& uart)
 {
     if (count < 3)
     {
@@ -141,7 +141,7 @@ meas_handle_get_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 
 
 static cli_err_t
-meas_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
+meas_handle_set_(char ** tokens, size_t count, cli_ctx_t& ctx, my_uart_t& uart)
 {
     (void)uart;
     if (count < 4)
@@ -231,7 +231,7 @@ meas_handle_set_(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
 
 
 cli_err_t
-meas_handle(char ** tokens, size_t count, Context& ctx, my_uart_t& uart)
+meas_handle(char ** tokens, size_t count, cli_ctx_t& ctx, my_uart_t& uart)
 {
     if (!tokens || !ctx.meas || !ctx.meas_mtx)
     {
