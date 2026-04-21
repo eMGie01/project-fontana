@@ -7,6 +7,7 @@
 #include "hx711.h"
 #include "measurement.hpp"
 #include "snapshot.h"
+#include "cli_interface.hpp"
 
 
 typedef enum
@@ -19,11 +20,20 @@ typedef enum
 
 typedef struct
 {
-    hx711_t * adc;
+    hx711_t * hx711;
     Measurement * meas;
     snapshot_t * snap;
+    SemaphoreHandle_t hx711_mtx;
     SemaphoreHandle_t meas_mtx;
 } task_meas_ctx_t;
+
+
+typedef struct 
+{
+    CLI * cli;
+    QueueHandle_t queue;
+} task_cli_ctx_t;
+
 
 
 

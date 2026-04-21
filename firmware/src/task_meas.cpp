@@ -13,7 +13,8 @@ taskMeas(void * pvParameters)
 {
     // initial args check
     task_meas_ctx_t * ctx = (task_meas_ctx_t *)pvParameters;
-    if ( ctx == NULL || ctx->adc == NULL || ctx->meas == NULL || ctx->snap == NULL || !ctx->snap->initialized || ctx->meas_mtx == NULL )
+    if ( ctx == NULL || ctx->hx711 == NULL || ctx->meas == NULL || ctx->snap == NULL ||
+        !ctx->snap->initialized || ctx->meas_mtx == NULL || ctx->hx711_mtx == NULL )
     {
         ESP_LOGE(TAG, "task_meas failed with error (%d)", TASK_INVALID_ARG);
         esp_restart();
@@ -49,10 +50,26 @@ taskMeas(void * pvParameters)
         filt_ready = false;
         avg_ready = false;
 
-        res = hx711_read_raw_isr(ctx->adc, &code);
+
+        if ( pdTRUE != xSemaphoreTake(ctx->hx711_mtx, portMAX_DELAY) )
+        {
+            ESP_LOGE(TAG, "failed to take hx711_mtx semaphore");
+            continue;
+        }
+
+        res = hx711_read_raw_isr_wait(ctx->hx711, &code);
+        xSemaphoreGive(ctx->hx711_mtx);
         if ( res != HX711_OK )
         {
-            ESP_LOGW(TAG, "reading data from adc failed with warning (%d)", res);
+            ESP_LOGW(TAG, "reading data from hx711 failed with warning (%d)", res);
+            if ( HX711_TIMEOUT == res )
+            {
+                vTaskDelay(pdMS_TO_TICKS(30));
+            }
+            else
+            {
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
             continue;
         }
         tick_count = xTaskGetTickCount();
@@ -89,6 +106,8 @@ taskMeas(void * pvParameters)
         {
             ESP_LOGW(TAG, "snapshot update failed (%d)", res);
         }
+
+        ESP_LOGI(TAG, "[%lld, %ld, %lld, %lld]", ctx->snap->ts, ctx->snap->val_code, ctx->snap->val_filt, ctx->snap->val_avg);
 
     }
 }
