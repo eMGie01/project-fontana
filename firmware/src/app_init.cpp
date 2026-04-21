@@ -50,8 +50,20 @@ app_init()
 
     // Init Measurement instance with mutex
     SemaphoreHandle_t meas_mutex = xSemaphoreCreateMutex();
+    if ( meas_mutex == NULL )
+    {
+        ESP_LOGE(TAG, "failed to create meas_mutex");
+        esp_restart();
+    }
 
     // Init Measurement context and task
     meas_ctx = { .adc = &hx711, .meas = &measurement, .snap = &snapshot, .meas_mtx = meas_mutex};
-    xTaskCreate(taskMeas, "MEAS", 2048, (void *)&meas_ctx, 8, NULL);
+    if ( pdTRUE != xTaskCreate(taskMeas, "MEAS", 2048, (void *)&meas_ctx, 8, NULL) )
+    {
+        ESP_LOGE(TAG, "failed to create task_meas");
+        esp_restart();  
+    }
+
+    // Init UART with CLI
+
 }
