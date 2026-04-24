@@ -2,6 +2,7 @@
 
 ## Firmware file tree
 
+```
 firmware
 ├── CMakeLists.txt
 ├── include
@@ -48,3 +49,4 @@ firmware
 │   └── task_meas.cpp
 └── test
     └── README
+```
