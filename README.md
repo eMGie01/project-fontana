@@ -16,7 +16,7 @@ firmware
 │   │       ├── cli_handles_meas.cpp
 │   │       ├── cli_interface.cpp
 │   │       └── cli_interface.hpp
-│   ├── hx711-esrpessif-driver
+│   ├── hx711-espressif-driver
 │   │   ├── README.md
 │   │   └── src
 │   │       ├── hx711.h
