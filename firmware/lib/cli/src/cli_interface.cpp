@@ -1,4 +1,13 @@
-#include "cli_interface.hpp"
+/**
+ * @file cli_interface.cpp
+ * @author Marek Gałeczka
+ * @brief Implementation of CLI command parsing, queuing, and dispatching.
+ * @version 0.1
+ * @date 2026-04-24
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "cli_handles.hpp"
 
 #include <cstring>
@@ -15,15 +24,30 @@ static const char * TAG = "CLI";
 
 
 CLI::
-CLI(my_uart_t& uart, cli_ctx_t& ctx, QueueHandle_t queue) :
+CLI(my_uart_t& uart, cli_ctx_t& ctx) :
     uart_(uart),
     ctx_(ctx),
-    queue_(queue),
+    queue_(nullptr),
     rx_len_(0),
     overflow_(false),
     echo_(false)
 {
     memset(rx_line_, '\0', CLI_RX_LINE_MAX);
+}
+
+
+void CLI::
+updateQueue(QueueHandle_t queue)
+{
+    queue_ = queue;
+    overflow_ = false;
+    resetLine_();
+}
+
+void CLI::
+updateContext(cli_ctx_t& ctx)
+{
+    ctx_ = ctx;
 }
 
 

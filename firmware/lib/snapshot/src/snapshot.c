@@ -1,3 +1,13 @@
+/**
+ * @file snapshot.c
+ * @author Marek Gałeczka (eMGie01)
+ * @brief 
+ * @version 0.1
+ * @date 2026-04-24
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "snapshot.h"
 
 snapshot_err_t
@@ -25,6 +35,37 @@ snapshot_init(snapshot_t * snap)
         return SNAP_MUTEX_ERR;
     }
     snap->initialized = true;
+
+    return SNAP_OK;
+}
+
+
+snapshot_err_t
+snapshot_deinit(snapshot_t * snap)
+{
+    if ( snap == NULL )
+    {
+        return SNAP_INVALID_ARG;
+    }
+
+    if ( !snap->initialized )
+    {
+        return SNAP_OK;
+    }
+
+    if ( snap->_mutex )
+    {
+        vSemaphoreDelete(snap->_mutex);
+    }
+
+    snap->ts = 0;
+    snap->val_code = 0;
+    snap->val_filt = 0;
+    snap->val_avg = 0;
+    snap->meas_scale = 0;
+    snap->meas_offset = 0;
+    snap->_mutex = NULL;
+    snap->initialized = false;
 
     return SNAP_OK;
 }

@@ -1,3 +1,13 @@
+/**
+ * @file my_uart.c
+ * @author Marek Gałeczka (eMGie01)
+ * @brief 
+ * @version 0.1
+ * @date 2026-04-24
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "my_uart.h"
 
 #include "driver/uart.h"
@@ -29,7 +39,6 @@ uart_event_task_ (void * pvParameters)
 
     /* buffer size max 128 */
     char rx_buffer[MIN(self->config.settings.rx_buffer_size, MAX_EVENT_BUFF_SIZE)];
-    ESP_LOGI("UART_TASK", "going for it");
     for ( ;; )
     {
 

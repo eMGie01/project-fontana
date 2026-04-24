@@ -1,3 +1,13 @@
+/**
+ * @file task_cli.cpp
+ * @author Marek Gałeczka (eMGie01)
+ * @brief 
+ * @version 0.1
+ * @date 2026-04-24
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "task_structures.hpp"
 
 #include "freertos/task.h"
