@@ -1,3 +1,13 @@
+/**
+ * @file my_uart.h
+ * @author Marek Gałeczka (eMGie01)
+ * @brief Lightweight UART wrapper with callback-based receive handling and task support.
+ * @version 0.1
+ * @date 2026-04-24
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #ifndef MY_UART_H
 #define MY_UART_H
 
@@ -78,11 +88,55 @@ typedef struct
 
 
 // Functions
+
+/**
+ * @brief Initializes the UART peripheral and driver for the provided device descriptor.
+ * 
+ * @param dev UART device descriptor to initialize.
+ * @return uart_err_t Result of the operation.
+ */
 uart_err_t uart_init(my_uart_t * dev);
+
+/**
+ * @brief Stops the UART runtime and removes the installed driver.
+ * 
+ * @param dev UART device descriptor to deinitialize.
+ * @return uart_err_t Result of the operation.
+ */
 uart_err_t uart_deinit(my_uart_t * dev);
+
+/**
+ * @brief Starts the UART event task responsible for receive processing.
+ * 
+ * @param dev UART device descriptor.
+ * @return uart_err_t Result of the operation.
+ */
 uart_err_t uart_start_task(my_uart_t * dev);
+
+/**
+ * @brief Stops the UART event task if it is running.
+ * 
+ * @param dev UART device descriptor.
+ * @return uart_err_t Result of the operation.
+ */
 uart_err_t uart_end_task(my_uart_t * dev);
+
+/**
+ * @brief Registers the receive callback and user context for the UART device.
+ * 
+ * @param dev UART device descriptor.
+ * @param cb Callback invoked for received data.
+ * @param ctx User context passed to the callback.
+ * @return uart_err_t Result of the operation.
+ */
 uart_err_t uart_set_callback(my_uart_t * dev, uart_rx_cb_t cb, void * ctx);
+
+/**
+ * @brief Creates a UART device descriptor filled with default configuration values.
+ * 
+ * @param cb Default receive callback stored in the descriptor.
+ * @return my_uart_t Default-initialized UART device descriptor.
+ */
 my_uart_t  uart_default_dev(uart_rx_cb_t cb);
 
 

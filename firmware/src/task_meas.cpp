@@ -1,3 +1,13 @@
+/**
+ * @file task_meas.cpp
+ * @author Marek Gałeczka (eMGie01)
+ * @brief Measurement task implementation responsible for reading HX711 data and updating processed values.
+ * @version 0.1
+ * @date 2026-04-24
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "task_structures.hpp"
 
 #include "freertos/task.h"

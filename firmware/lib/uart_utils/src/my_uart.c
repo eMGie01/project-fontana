@@ -1,3 +1,13 @@
+/**
+ * @file my_uart.c
+ * @author Marek Gałeczka (eMGie01)
+ * @brief 
+ * @version 0.1
+ * @date 2026-04-24
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "my_uart.h"
 
 #include "driver/uart.h"

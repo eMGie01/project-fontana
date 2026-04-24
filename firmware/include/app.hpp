@@ -1,7 +1,7 @@
 /**
  * @file app.hpp
  * @author Marek Gałeczka
- * @brief 
+ * @brief Application initialization and shutdown interface.
  * @version 0.1
  * @date 2026-04-24
  * 

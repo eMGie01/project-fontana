@@ -1,3 +1,13 @@
+/**
+ * @file measurement.cpp
+ * @author Marek Gałeczka (eMGie01)
+ * @brief Implementation of the Measurement filtering and averaging logic.
+ * @version 0.1
+ * @date 2026-04-24
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "measurement.hpp"
 
 

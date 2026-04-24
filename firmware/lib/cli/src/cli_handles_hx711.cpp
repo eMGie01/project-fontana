@@ -1,3 +1,13 @@
+/**
+ * @file cli_handles_hx711.cpp
+ * @author Marek Gałeczka (eMGie01)
+ * @brief CLI command handlers responsible for configuring the HX711 module.
+ * @version 0.1
+ * @date 2026-04-24
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "cli_handles.hpp"
 
 #include "esp_log.h"

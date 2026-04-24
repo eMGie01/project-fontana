@@ -1,4 +1,13 @@
-#include "cli_interface.hpp"
+/**
+ * @file cli_interface.cpp
+ * @author Marek Gałeczka
+ * @brief Implementation of CLI command parsing, queuing, and dispatching.
+ * @version 0.1
+ * @date 2026-04-24
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #include "cli_handles.hpp"
 
 #include <cstring>
