@@ -29,7 +29,6 @@ uart_event_task_ (void * pvParameters)
 
     /* buffer size max 128 */
     char rx_buffer[MIN(self->config.settings.rx_buffer_size, MAX_EVENT_BUFF_SIZE)];
-    ESP_LOGI("UART_TASK", "going for it");
     for ( ;; )
     {
 

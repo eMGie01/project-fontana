@@ -38,6 +38,7 @@ typedef struct
 
 // Functions
 snapshot_err_t snapshot_init(snapshot_t * snap);
+snapshot_err_t snapshot_deinit(snapshot_t * snap);
 
 snapshot_err_t snapshot_set_meas_values(snapshot_t * snap, uint64_t timestamp, int32_t code, int64_t val_filt, bool avg_ready, int64_t val_avg);
 

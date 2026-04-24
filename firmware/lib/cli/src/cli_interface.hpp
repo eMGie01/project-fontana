@@ -43,7 +43,10 @@ class CLI
 
 public:
 
-    CLI(my_uart_t& uart, cli_ctx_t& ctx, QueueHandle_t queue);
+    CLI(my_uart_t& uart, cli_ctx_t& ctx);
+
+    void updateQueue(QueueHandle_t queue);
+    void updateContext(cli_ctx_t& ctx);
 
     void push(const char * data, size_t len);
     void process(char * buff);

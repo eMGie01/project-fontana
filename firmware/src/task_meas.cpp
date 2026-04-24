@@ -61,13 +61,13 @@ taskMeas(void * pvParameters)
         xSemaphoreGive(ctx->hx711_mtx);
         if ( res != HX711_OK )
         {
-            ESP_LOGW(TAG, "reading data from hx711 failed with warning (%d)", res);
             if ( HX711_TIMEOUT == res )
             {
                 vTaskDelay(pdMS_TO_TICKS(30));
             }
             else
             {
+                ESP_LOGW(TAG, "reading data from hx711 failed with warning (%d)", res);
                 vTaskDelay(pdMS_TO_TICKS(200));
             }
             continue;
