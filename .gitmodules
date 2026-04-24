@@ -1,0 +1,4 @@
+[submodule "firmware/lib/hx711-esrpessif-driver"]
+	path = firmware/lib/hx711-esrpessif-driver
+	url = git@github.com:eMGie01/hx711-esrpessif-driver.git
+	branch = main

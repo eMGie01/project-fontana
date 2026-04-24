@@ -1,5 +1,5 @@
-#ifndef MEASUREMENTS_HPP
-#define MEASUREMENTS_HPP
+#ifndef MEASUREMENT_HPP
+#define MEASUREMENT_HPP
 
 #include <cstdint>
 
@@ -31,6 +31,9 @@ public:
     meas_err_t getFilteredValueX1000(int64_t& value); 
     meas_err_t getAvgValueX1000(int64_t& value);
 
+    int32_t getOffset();
+    int32_t getScale();
+
 private:
     int32_t offset_raw_;
     int32_t scale_x1000_;
@@ -49,4 +52,4 @@ private:
 };
 
 
-#endif /* MEASUREMENTS_HPP */
+#endif /* MEASUREMENT_HPP */

@@ -1,4 +1,4 @@
-#include "measurements.hpp"
+#include "measurement.hpp"
 
 
 static constexpr uint16_t DEFAULT_AVG_WINDOW_SIZE = 64;
@@ -143,4 +143,18 @@ getAvgValueX1000(int64_t& value)
     }
 
     return MEAS_AVG_NOT_RDY;
+}
+
+
+int32_t Measurement::
+getOffset(void)
+{
+    return (int32_t)offset_raw_;
+}
+
+
+int32_t Measurement::
+getScale(void)
+{
+    return (int32_t)scale_x1000_;
 }

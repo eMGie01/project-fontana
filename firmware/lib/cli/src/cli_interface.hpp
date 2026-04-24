@@ -1,19 +1,21 @@
 #ifndef CLI_INTERFACE_HPP
 #define CLI_INTERFACE_HPP
 
-#include "measurements.hpp"
+#include "measurement.hpp"
 #include "hx711.h"
 #include "my_uart.h"
+#include "snapshot.h"
 #include <cstddef>
 
 
 static constexpr size_t CLI_RX_LINE_MAX = 256;
 
 
-struct Context
+struct cli_ctx_t
 {
-    hx711_t *hx711;
-    Measurement *meas;
+    hx711_t * hx711;
+    Measurement * meas;
+    snapshot_t * snap;
     SemaphoreHandle_t hx711_mtx;
     SemaphoreHandle_t meas_mtx;
 };
@@ -41,7 +43,7 @@ class CLI
 
 public:
 
-    CLI(my_uart_t& uart, Context& ctx, QueueHandle_t queue);
+    CLI(my_uart_t& uart, cli_ctx_t& ctx, QueueHandle_t queue);
 
     void push(const char * data, size_t len);
     void process(char * buff);
@@ -58,7 +60,7 @@ private:
 private:
 
     my_uart_t& uart_;
-    Context& ctx_;
+    cli_ctx_t& ctx_;
     QueueHandle_t queue_;
 
     size_t rx_len_;

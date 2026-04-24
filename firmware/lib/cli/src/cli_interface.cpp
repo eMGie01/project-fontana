@@ -15,7 +15,7 @@ static const char * TAG = "CLI";
 
 
 CLI::
-CLI(my_uart_t& uart, Context& ctx, QueueHandle_t queue) :
+CLI(my_uart_t& uart, cli_ctx_t& ctx, QueueHandle_t queue) :
     uart_(uart),
     ctx_(ctx),
     queue_(queue),
@@ -207,10 +207,10 @@ printHelp_()
     static const char help_text[] =
         "Available commands:\r\n"
         "  help\r\n"
-        "  hx711 get offset\r\n"
-        "  hx711 get scale\r\n"
-        "  hx711 set offset <value>\r\n"
-        "  hx711 set scale <value>\r\n"
+        "  hx711 get mode\r\n"
+        "  hx711 get timeout\r\n"
+        "  hx711 set mode <value>\r\n"
+        "  hx711 set timeout <value>\r\n"
         "  meas get filt\r\n"
         "  meas get avg\r\n"
         "  meas set offset <value>\r\n"
