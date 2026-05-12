@@ -1,0 +1,4 @@
+[submodule "firmware/lib/driver-hx711"]
+	path = firmware/lib/driver-hx711
+	url = git@github.com:eMGie01/hx711-espressif-driver.git
+	branch = refactor/new-style
