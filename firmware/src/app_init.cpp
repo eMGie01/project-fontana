@@ -1,8 +1,8 @@
 /**
  * @file app_init.cpp
- * @author Marek Gałeczka (eMGie01)
+ * @author Marek Galeczka (eMGie01)
  * @brief 
- * @version 0.1
+ * @version 0.2
  * @date 2026-04-24
  * 
  * @copyright Copyright (c) 2026
@@ -10,8 +10,6 @@
  */
 #include "app.hpp"
 #include "task_structures.hpp"
-
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -51,17 +49,7 @@ static task_meas_ctx_t task_meas_ctx;
 static task_cli_ctx_t task_cli_ctx;
 
 
-// Static Funciton
-static void
-uart_cli_bridge_(void * ctx, const char * data, size_t len)
-{
-    if ( ctx != nullptr )
-    {
-        static_cast<CLI *>(ctx)->push(data, len);
-    }
-}
-
-
+/*
 void
 app_deinit()
 {
@@ -127,7 +115,7 @@ app_deinit()
         isr_service_installed = false;
     }
 }
-
+*/
 
 // App Init
 init_status_t
@@ -149,7 +137,8 @@ app_init()
     if ( HX711_OK != res )
     {
         ESP_LOGE(TAG, "failed to init hx711 with error (%d)", res);
-        goto fail;
+        app_deinit();
+        return INIT_RESTART;
     }
 
     hx711_mutex = xSemaphoreCreateMutex();
@@ -207,31 +196,7 @@ app_init()
         goto fail;
     }
 
-    static CLI cli(huart, cli_ctx);
-    cli.updateQueue(cli_queue);
-    cli_ptr = &cli;
 
-    res = (int)uart_set_callback(&huart, uart_cli_bridge_, cli_ptr);
-    if ( UART_OK != res )
-    {
-        ESP_LOGE(TAG, "uart callback set failed with error (%d)", res);
-        goto fail;
-    }
-
-    res = uart_start_task(&huart);
-    if ( UART_OK != res )
-    {
-        ESP_LOGE(TAG, "uart start task failed with error (%d)", res);
-        goto fail;
-    }
-
-    // Init CLI context and task
-    task_cli_ctx = { .cli = cli_ptr, .queue = cli_queue };
-    if ( pdTRUE != xTaskCreate(taskCli, "CLI", 2048, (void *)&task_cli_ctx, 8, &task_cli_handle) )
-    {
-        ESP_LOGE(TAG, "failed to create task_cli");
-        goto fail;
-    }
 
     return INIT_DONE;
 
