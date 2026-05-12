@@ -1,4 +1,0 @@
-[submodule "firmware/lib/driver-hx711"]
-	path = firmware/lib/driver-hx711
-	url = git@github.com:eMGie01/hx711-esrpessif-driver.git
-	branch = refactor/new-style
