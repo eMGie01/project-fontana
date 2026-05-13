@@ -24,7 +24,7 @@ typedef enum MEAS_StatusTypeDef
     MEAS_ERR_AVG_NRDY   = -5,
     MEAS_ERR_ZERO_DIV   = -6,
     MEAS_ERR_OK         =  0,
-};
+} MEAS_StatusTypeDef;
 
 typedef enum MEAS_IoctlTypeDef
 {
@@ -33,13 +33,13 @@ typedef enum MEAS_IoctlTypeDef
     MEAS_IOCTL_SET_CODE_COUNTS_PER_UMHG = 3,
     MEAS_IOCTL_SET_IIR_SHIFT            = 4,
     MEAS_IOCTL_SET_AVG_WINDOW_SIZE      = 5,
-};
+} MEAS_IoctlTypeDef;
 
 typedef struct MEAS_ReadStructDef
 {
     int64_t umHgFilt;
     int64_t umHgAvg;
-};
+} MEAS_ReadStructDef;
 
 class Meas
 {
@@ -66,10 +66,10 @@ public:
 
 private:
     void reset_();
-    MEAS_StatusTypeDef setCodeOffset_(int32_t code);
-    MEAS_StatusTypeDef setCodeCountsPerUmHg_(int32_t code);
-    MEAS_StatusTypeDef setIirShift_();
-    MEAS_StatusTypeDef setAvgWindowSize_();
+    MEAS_StatusTypeDef setCodeOffset_(int32_t* code);
+    MEAS_StatusTypeDef setCodeCountsPerUmHg_(int32_t* code);
+    MEAS_StatusTypeDef setIirShift_(uint8_t* shift);
+    MEAS_StatusTypeDef setAvgWindowSize_(uint8_t* size);
 
     // variables
     int32_t codeOffset_;

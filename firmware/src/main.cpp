@@ -1,8 +1,8 @@
 /**
  * @file main.cpp
- * @author Marek Gałeczka (eMGie01)
+ * @author Marek Galeczka (marek.galeczka@outlook.com)
  * @brief 
- * @version 0.1
+ * @version 0.2
  * @date 2026-04-24
  * 
  * @copyright Copyright (c) 2026
@@ -19,13 +19,9 @@
 
 #define MAX_INIT_COUNT 3
 
-// static const char * TAG = "MAIN";
-
 extern "C" void
 app_main()
 {
-    // ESP_LOGI(TAG, "program started");
-
 
     init_status_t st = INIT_ONGOING;
     int retries = 0;

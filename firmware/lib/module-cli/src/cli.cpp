@@ -10,7 +10,7 @@ static constexpr size_t kMaxTokens = 8;
 
 
 void CLI::
-push(const char c)
+Read(const char c)
 {
     if ( c == '\n' || c == '\r' )
     {

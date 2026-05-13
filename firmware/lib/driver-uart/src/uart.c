@@ -2,8 +2,6 @@
 #include "driver/uart.h"
 #include "driver/gpio.h"
 
-#include <string.h>
-
 // open ports
 #define UART_MAX_DEVS 3 // esp32 has UART0..2
 

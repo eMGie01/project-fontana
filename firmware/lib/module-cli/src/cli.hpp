@@ -1,6 +1,6 @@
 /**
  * @file cli.h
- * @author Marek Gałeczka (marek.galeczka@outlook.com)
+ * @author Marek Galeczka (marek.galeczka@outlook.com)
  * @brief 
  * @version 0.1
  * @date 2026-05-07
@@ -12,27 +12,28 @@
 #ifndef CLI_HPP
 #define CLI_HPP
 
-#include "uart_stream.hpp"
+#include <stddef.h>
+#include "iostream.hpp"
 
 #define CLI_MAX_LINE 64
 
-class CLI
+class Cli
 {
 public: 
-    CLI(IoStream& stream/*, modules */)
+    Cli(IoStream& stream/*, modules */)
         : stream_(stream)
         , pos_(0)
     {}
+    ~Cli() = default;
 
-    // fcn
-    void push(const char c);
-    // void Log(const log_evt_t& evt);
+    void Read(const char c);
+    int RegisterCommand(const cli_CommandTypeDef* cmd);
 
 private:
     // fcn
     void    processLine_();
-    size_t  tokenizeLine_(char ** tokens);
-    void    dispatchModule_(char ** tokens, size_t count);
+    size_t  tokenizeLine_(char **tokens);
+    void    dispatchModule_(char **tokens, size_t count);
 
     // var
     IoStream& stream_;

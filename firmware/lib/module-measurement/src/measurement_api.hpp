@@ -1,0 +1,44 @@
+/**
+ * @file measurement_api.hpp
+ * @author Marek Galeczka (marek.galeczka@outlook.com)
+ * @brief 
+ * @version 0.1
+ * @date 2026-05-12
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
+#ifndef MEASUREMENT_API_HPP
+#define MEASUREMENT_API_HPP
+
+#include "measurement.hpp"
+
+#include <stdint.h>
+
+typedef enum MEAS_TaskCmdType
+{
+    MEAS_TASK_CMD_RESET = 0,
+    MEAS_TASK_CMD_SET_OFFSET = 1,
+    MEAS_TASK_CMD_SET_COUNTS_PER_UMHG = 2,
+    MEAS_TASK_CMD_SET_IIR_SHIFT = 3,
+    MEAS_TASK_CMD_SET_AVG_WINDOW_SIZE = 4,
+
+} MEAS_TaskCmdType;
+
+typedef struct MEAS_TaskCmd
+{
+    MEAS_TaskCmdType type;
+    union
+    {
+        int32_t codeOffset;
+        int32_t codeCountsPerUmHg;
+        uint8_t iirShift;
+        uint8_t avgWindowSize;
+    } arg;
+
+} MEAS_TaskCmd;
+
+MEAS_API_
+
+#endif // MEASUREMENT_API_HPP

@@ -71,18 +71,47 @@ reset_(void)
 }
 
 MEAS_StatusTypeDef Meas::
-setCodeOffset_(int32_t code)
+setCodeOffset_(int32_t* code)
 {
-    codeOffset_ = code;
-}
-
-MEAS_StatusTypeDef Meas::
-setCodeCountsPerUmHg_(int32_t countsPerUmHg)
-{
-    if (countsPerUmHg <= 0)
+    if (code == NULL)
     {
         return MEAS_ERR_INVAL;
     }
+    codeOffset_ = *code;
+    return MEAS_ERR_OK;
+}
+
+MEAS_StatusTypeDef Meas::
+setCodeCountsPerUmHg_(int32_t* countsPerUmHg)
+{
+    if (*countsPerUmHg == 0)
+    {
+        return MEAS_ERR_INVAL;
+    }
+    codeCountPerUmHg_ = *countsPerUmHg;
+    return MEAS_ERR_OK;
+}
+
+MEAS_StatusTypeDef Meas::
+setIirShift_(uint8_t* shift)
+{
+    if (shift == NULL)
+    {
+        return MEAS_ERR_INVAL;
+    }
+    iirShift_ = *shift;
+    return MEAS_ERR_OK;
+}
+
+MEAS_StatusTypeDef Meas::
+setAvgWindowSize_(uint8_t* size)
+{
+    if (size == NULL)
+    {
+        return MEAS_ERR_INVAL;
+    }
+    averageWindowSize_ = *size;
+    return MEAS_ERR_OK;
 }
 
 MEAS_StatusTypeDef Meas::
@@ -105,14 +134,17 @@ Ioctl(MEAS_IoctlTypeDef request, void* arg)
     }
     case MEAS_IOCTL_SET_CODE_COUNTS_PER_UMHG:
     {
+        status = setCodeCountsPerUmHg_((int32_t *)arg);
         break;
     }
     case MEAS_IOCTL_SET_IIR_SHIFT:
     {
+        status = setIirShift_((uint8_t *)arg);
         break;
     }
     case MEAS_IOCTL_SET_AVG_WINDOW_SIZE:
     {
+        status = setAvgWindowSize_((uint8_t *)arg);
         break;
     }
     default:
