@@ -13,10 +13,12 @@
 #define TASKMEAS_HPP
 
 #include "measurement.hpp"
-#include "measurementCli.hpp"
+#include "meas_task_api.h"
+#include "hx711.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 
 typedef enum MEAS_TaskEventType
 {
@@ -34,5 +36,15 @@ typedef struct MEAS_TaskEvent
     } data;
 
 } MEAS_TaskEvent;
+
+typedef struct MEAS_TaskContext
+{
+    hx711_TypeDef* hx711;
+    Meas* meas;
+    QueueHandle_t* eventQueue; 
+} MEAS_TaskContext;
+
+void MEAS_Hx711DataReadyCallback(void* arg);
+void measTask(void* pvParameters);
 
 #endif // TASKMEAS_HPP

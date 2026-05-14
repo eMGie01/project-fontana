@@ -1,5 +1,5 @@
 /**
- * @file measurement_api.hpp
+ * @file measurement_api.h
  * @author Marek Galeczka (marek.galeczka@outlook.com)
  * @brief 
  * @version 0.1
@@ -9,12 +9,13 @@
  * 
  */
 
-#ifndef MEASUREMENT_API_HPP
-#define MEASUREMENT_API_HPP
+#ifndef MEASUREMENT_API_H
+#define MEASUREMENT_API_H
 
 #include "measurement.hpp"
 
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef enum MEAS_TaskCmdType
 {
@@ -39,6 +40,6 @@ typedef struct MEAS_TaskCmd
 
 } MEAS_TaskCmd;
 
-MEAS_API_
+bool MEAS_TaskSendCmd(const MEAS_TaskCmd* cmd);
 
-#endif // MEASUREMENT_API_HPP
+#endif // MEASUREMENT_API_H

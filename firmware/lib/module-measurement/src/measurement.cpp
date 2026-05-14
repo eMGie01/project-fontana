@@ -28,8 +28,8 @@ Write(int32_t code)
     }
 
     // 2. average value from window
-    codeAverage_ += offCode;
-    if (++averageIndexCount_ < averageWindowSize_)
+    codeAverageSum_ += offCode;
+    if (averageIndexCount_++ < averageWindowSize_)
     {
         return;
     }
