@@ -38,7 +38,6 @@ public:
 
 private:
     uart_fd_t& Fd_;
-
 };
 
 #endif // UART_STREAM_HPP

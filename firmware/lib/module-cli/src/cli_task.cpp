@@ -1,4 +1,14 @@
-#include "cli_task.hpp"
+/**
+ * @file cli_task.cpp
+ * @author Marek Galeczka (marek.galeczka@outlook.com)
+ * @brief 
+ * @version 0.1
+ * @date 2026-05-17
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
 #include "cli_meas_handlers.hpp"
 #include "uart_stream.hpp"
 
