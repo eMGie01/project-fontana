@@ -20,31 +20,31 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 
-typedef enum MEAS_TaskEventType
+typedef enum meas_TaskEventTypeTypeDef
 {
     MEAS_TASK_EVENT_HX711_READY = 1,
     MEAS_TASK_EVENT_CMD = 2,
 
-} MEAS_TaskEventType;
+} meas_TaskEventTypeTypeDef;
 
-typedef struct MEAS_TaskEvent
+typedef struct meas_TaskEventTypeDef
 {
-    MEAS_TaskEventType type;
+    meas_TaskEventTypeTypeDef type;
     union 
     {
-        MEAS_TaskCmd cmd;
+        meas_TaskCmdTypeDef cmd;
     } data;
 
-} MEAS_TaskEvent;
+} meas_TaskEventTypeDef;
 
-typedef struct MEAS_TaskContext
+typedef struct meas_TaskContextTypeDef
 {
-    hx711_TypeDef* hx711;
+    hx711_HandleTypeDef hx711;
     Meas* meas;
     QueueHandle_t* eventQueue; 
-} MEAS_TaskContext;
+} meas_TaskContextTypeDef;
 
-void MEAS_Hx711DataReadyCallback(void* arg);
-void measTask(void* pvParameters);
+void meas_DataReadyCallback(void* arg);
+void meas_Task(void* pvParameters);
 
 #endif // TASKMEAS_HPP

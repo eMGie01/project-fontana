@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef enum MEAS_TaskCmdType
+typedef enum meas_TaskCmdTypeTypeDef
 {
     MEAS_TASK_CMD_RESET = 0,
     MEAS_TASK_CMD_SET_OFFSET = 1,
@@ -25,11 +25,11 @@ typedef enum MEAS_TaskCmdType
     MEAS_TASK_CMD_SET_IIR_SHIFT = 3,
     MEAS_TASK_CMD_SET_AVG_WINDOW_SIZE = 4,
 
-} MEAS_TaskCmdType;
+} meas_TaskCmdTypeTypeDef;
 
-typedef struct MEAS_TaskCmd
+typedef struct meas_TaskCmdTypeDef
 {
-    MEAS_TaskCmdType type;
+    meas_TaskCmdTypeTypeDef type;
     union
     {
         int32_t codeOffset;
@@ -38,8 +38,8 @@ typedef struct MEAS_TaskCmd
         uint8_t avgWindowSize;
     } arg;
 
-} MEAS_TaskCmd;
+} meas_TaskCmdTypeDef;
 
-bool MEAS_TaskSendCmd(const MEAS_TaskCmd* cmd);
+bool meas_TaskSendCmd(const meas_TaskCmdTypeDef* cmd);
 
 #endif // MEASUREMENT_API_H

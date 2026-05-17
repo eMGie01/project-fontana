@@ -18,7 +18,7 @@
 class UartStream : public IoStream
 {
 public:
-    explicit UartStream(uart_fd_t fd)
+    explicit UartStream(uart_fd_t& fd)
     : Fd_(fd)
     {}
 
@@ -37,7 +37,7 @@ public:
     }
 
 private:
-    uart_fd_t Fd_;
+    uart_fd_t& Fd_;
 
 };
 

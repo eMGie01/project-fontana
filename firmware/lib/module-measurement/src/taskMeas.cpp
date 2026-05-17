@@ -15,17 +15,17 @@
 #include "esp_log.h"
 
 
-static const char * tag = "MEAS_TASK";
+static const char * tag = "MEAS_Task";
 
 static QueueHandle_t* s_MeasEventQueue = nullptr;
 static hx711_TypeDef* s_hx711;
 static Meas* s_meas;
 
 void IRAM_ATTR
-MEAS_Hx711DataReadyCallback(void* arg)
+meas_DataReadyCallback(void* arg)
 {
     BaseType_t hpTaskWoken = pdFALSE;
-    MEAS_TaskEvent event = {};
+    meas_TaskEventTypeDef event = {};
     event.type = MEAS_TASK_EVENT_HX711_READY;
 
     xQueueSendFromISR(*s_MeasEventQueue, &event, &hpTaskWoken);
@@ -36,60 +36,124 @@ MEAS_Hx711DataReadyCallback(void* arg)
     }
 }
 
-bool MEAS_TaskSendCmd(const MEAS_TaskCmd* cmd)
+bool meas_TaskSendCmd(const meas_TaskCmdTypeDef* cmd)
 {
-	if (s_MeasEventQueue == NULL || cmd == NULL)
+	if (s_MeasEventQueue == NULL || *s_MeasEventQueue == NULL || cmd == NULL)
 	{
 		return false;
 	}
 	
-	MEAS_TaskEvent event = {};
+	meas_TaskEventTypeDef event = {};
 	event.type = MEAS_TASK_EVENT_CMD;
 	event.data.cmd = *cmd;
 	return (xQueueSend(*s_MeasEventQueue, &event, portMAX_DELAY) == pdTRUE);
 }
 
-static void
-MEAS_TaskReadADC()
+static meas_StatusTypeDef
+MEAS_TaskHandleCmd(const meas_TaskCmdTypeDef* cmd)
+{
+	if (cmd == nullptr)
+	{
+		return MEAS_ERR_INVAL;
+	}
+
+	switch (cmd->type)
+	{
+	case MEAS_TASK_CMD_RESET:
+		return s_meas->Ioctl(MEAS_IOCTL_RESET, nullptr);
+
+	case MEAS_TASK_CMD_SET_OFFSET:
+	{
+		int32_t value = cmd->arg.codeOffset;
+		return s_meas->Ioctl(MEAS_IOCTL_SET_CODE_OFFSET, &value);
+	}
+
+	case MEAS_TASK_CMD_SET_COUNTS_PER_UMHG:
+	{
+		int32_t value = cmd->arg.codeCountsPerUmHg;
+		return s_meas->Ioctl(MEAS_IOCTL_SET_CODE_COUNTS_PER_UMHG, &value);
+	}
+
+	case MEAS_TASK_CMD_SET_IIR_SHIFT:
+	{
+		uint8_t value = cmd->arg.iirShift;
+		return s_meas->Ioctl(MEAS_IOCTL_SET_IIR_SHIFT, &value);
+	}
+
+	case MEAS_TASK_CMD_SET_AVG_WINDOW_SIZE:
+	{
+		uint8_t value = cmd->arg.avgWindowSize;
+		return s_meas->Ioctl(MEAS_IOCTL_SET_AVG_WINDOW_SIZE, &value);
+	}
+
+	default:
+		return MEAS_ERR_INVAL;
+	}
+}
+
+static bool
+MEAS_TaskTaskReadADC()
 {
 	int32_t code;
-	MEAS_ReadStructDef readStruct;
+	meas_ReadTypeDef readStruct;
 
-	hx711_Read(s_hx711, &code);
+	hx711_StatusTypeDef hx711St = hx711_Read(s_hx711, &code);
+	if (hx711St != HX711_ERR_OK)
+	{
+		ESP_LOGW(tag, "hx711_Read failed with error (%d)", hx711St);
+		return false;
+	}
 	s_meas->Write(code);
-	s_meas->Read(readStruct);
+	meas_StatusTypeDef measSt = s_meas->Read(readStruct);
+	if (measSt != MEAS_ERR_OK)
+	{
+		ESP_LOGE(tag, "performing calculations in Meas Class failed with error (%d)", measSt);
+		return false;
+	}
 	
 	uint64_t time = (uint64_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
-
 	ESP_LOGI(tag, "[%lld, %ld, %lld, %lld]", time, code, readStruct.umHgAvg, readStruct.umHgFilt);
+	return true;
 }
 
 void 
-measTask(void* pvParameters)
+meas_Task(void* pvParameters)
 {
-	MEAS_TaskContext* ctx = (MEAS_TaskContext*)pvParameters;
+	meas_TaskContextTypeDef* ctx = static_cast<meas_TaskContextTypeDef*>(pvParameters);
+	if (ctx == nullptr || ctx->hx711 == nullptr || ctx->eventQueue == nullptr || *ctx->eventQueue == nullptr || ctx->meas == nullptr)
+	{
+		ESP_LOGE(tag, "measTask init failed");
+		vTaskDelete(nullptr); // albo esp_restart(), jeśli to błąd krytyczny
+		return;
+	}
 
 	s_hx711 = ctx->hx711;
 	s_MeasEventQueue = ctx->eventQueue;
 	s_meas = ctx->meas;
 	
-	MEAS_TaskEvent event;
-	int32_t code;
+	meas_TaskEventTypeDef event;
 	for (;;)
 	{
 		if (xQueueReceive(*s_MeasEventQueue, &event, portMAX_DELAY) == pdTRUE)
 		{
 			if (event.type == MEAS_TASK_EVENT_HX711_READY)
 			{
-				MEAS_TaskReadADC();
+				if (MEAS_TaskTaskReadADC() == true)
+				{
+					// save to snapshot;
+				}
 			}
 			else if (event.type == MEAS_TASK_EVENT_CMD)
 			{
-				// switch statement for commands :3
+				meas_StatusTypeDef st = MEAS_TaskHandleCmd(&event.data.cmd);
+				if (st != MEAS_ERR_OK)
+				{
+					ESP_LOGW(tag, "meas command failed: %d", st);
+				}
 			}
 			else
 			{
-				// log smth
+				ESP_LOGE(tag, "event type unexpectedfailure");
 				continue;
 			}
 		}

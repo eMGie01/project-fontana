@@ -40,8 +40,8 @@ Write(int32_t code)
     averageValueReady_ = true;
 }
 
-MEAS_StatusTypeDef Meas::
-Read(MEAS_ReadStructDef& values)
+meas_StatusTypeDef Meas::
+Read(meas_ReadTypeDef& values)
 {
     if (codeCountPerUmHg_ == 0)
     {
@@ -70,7 +70,7 @@ reset_(void)
     averageValueReady_ = false;
 }
 
-MEAS_StatusTypeDef Meas::
+meas_StatusTypeDef Meas::
 setCodeOffset_(int32_t* code)
 {
     if (code == NULL)
@@ -81,10 +81,10 @@ setCodeOffset_(int32_t* code)
     return MEAS_ERR_OK;
 }
 
-MEAS_StatusTypeDef Meas::
+meas_StatusTypeDef Meas::
 setCodeCountsPerUmHg_(int32_t* countsPerUmHg)
 {
-    if (*countsPerUmHg == 0)
+    if (countsPerUmHg == NULL || *countsPerUmHg == 0)
     {
         return MEAS_ERR_INVAL;
     }
@@ -92,7 +92,7 @@ setCodeCountsPerUmHg_(int32_t* countsPerUmHg)
     return MEAS_ERR_OK;
 }
 
-MEAS_StatusTypeDef Meas::
+meas_StatusTypeDef Meas::
 setIirShift_(uint8_t* shift)
 {
     if (shift == NULL)
@@ -103,7 +103,7 @@ setIirShift_(uint8_t* shift)
     return MEAS_ERR_OK;
 }
 
-MEAS_StatusTypeDef Meas::
+meas_StatusTypeDef Meas::
 setAvgWindowSize_(uint8_t* size)
 {
     if (size == NULL)
@@ -114,10 +114,10 @@ setAvgWindowSize_(uint8_t* size)
     return MEAS_ERR_OK;
 }
 
-MEAS_StatusTypeDef Meas::
-Ioctl(MEAS_IoctlTypeDef request, void* arg)
+meas_StatusTypeDef Meas::
+Ioctl(meas_IoctlTypeDef request, void* arg)
 {
-    MEAS_StatusTypeDef status;
+    meas_StatusTypeDef status;
 
     switch (request)
     {

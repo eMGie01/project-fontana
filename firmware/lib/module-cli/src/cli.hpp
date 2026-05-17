@@ -15,7 +15,17 @@
 #include <stddef.h>
 #include "iostream.hpp"
 
-#define CLI_MAX_LINE 64
+static constexpr size_t CLI_MAX_LINE = 64;
+static constexpr size_t CLI_MAX_COMMANDS = 16;
+
+typedef int (*cli_CommandHandler)(IoStream& stream, int argc, char** argv);
+
+typedef struct cli_CommandTypeDef
+{
+    const char* name;
+    const char* help;
+    cli_CommandHandler handler;
+} cli_CommandTypeDef;
 
 class Cli
 {
@@ -23,10 +33,11 @@ public:
     Cli(IoStream& stream/*, modules */)
         : stream_(stream)
         , pos_(0)
-    {}
+        , commandCount_(0)
+    {};
     ~Cli() = default;
 
-    void Read(const char c);
+    void Read(size_t count);
     int RegisterCommand(const cli_CommandTypeDef* cmd);
 
 private:
@@ -39,6 +50,8 @@ private:
     IoStream& stream_;
     char line_[CLI_MAX_LINE];
     size_t pos_;
+    const cli_CommandTypeDef* commands_[CLI_MAX_COMMANDS];
+    size_t commandCount_;
 };
 
 #endif // CLI_HPP
