@@ -12,35 +12,15 @@
 #ifndef MEASUREMENT_HPP
 #define MEASUREMENT_HPP
 
+#include "err_status.hpp"
+
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
-typedef enum meas_StatusTypeDef
-{
-    MEAS_ERR_NODEV      = -1,
-    MEAS_ERR_INVAL      = -2,
-    MEAS_ERR_RUNTIME    = -3,
-    MEAS_ERR_FILT_NRDY  = -4,
-    MEAS_ERR_AVG_NRDY   = -5,
-    MEAS_ERR_ZERO_DIV   = -6,
-    MEAS_ERR_OK         =  0,
-} meas_StatusTypeDef;
-
-typedef enum meas_IoctlTypeDef
-{
-    MEAS_IOCTL_RESET                    = 1,
-    MEAS_IOCTL_SET_CODE_OFFSET          = 2,
-    MEAS_IOCTL_SET_CODE_COUNTS_PER_UMHG = 3,
-    MEAS_IOCTL_SET_IIR_SHIFT            = 4,
-    MEAS_IOCTL_SET_AVG_WINDOW_SIZE      = 5,
-} meas_IoctlTypeDef;
-
-typedef struct meas_ReadTypeDef
-{
-    int64_t umHgFilt;
-    int64_t umHgAvg;
-} meas_ReadTypeDef;
-
+/**
+ * @brief Main Meas Class body
+ */
 class Meas
 {
 public:
@@ -49,35 +29,82 @@ public:
     , codeCountPerUmHg_(1)
     , codeFilt_(0)
     , iirShift_(1/*i have to change it*/)
-    // , filtValueReady_(true)
     , firstSample_(true)
     , codeAverage_(0)
     , codeAverageSum_(0)
     , averageWindowSize_(64/*change it to default win size*/)
+    , averageIndexCount_(0)
     , averageValueReady_(false)
-    {} 
+    {}
+
     ~Meas() = default;
 
-    // meas_StatusTypeDef Open();
-    // meas_StatusTypeDef Close();
+    /**
+     * @brief Write() function used for pushing and computing new data received by sensor
+     *        *2026.05.18* - it pushes data through IIR filter (for filtering) and performs averaging in specified,
+     *                       by @param averageWindowSize window size
+     * @param code raw output from sensor
+     */
     void Write(int32_t code);
-    meas_StatusTypeDef Read(meas_ReadTypeDef& values);
-    meas_StatusTypeDef Ioctl(meas_IoctlTypeDef request, void* arg);
+
+    /**
+     * @brief 
+     * @param umHgFilt 
+     * @return ErrStatus:
+     *                      - ZERO_DIV if scale is set to 0, which is incorrect (clear error),
+     *                      - OK
+     */
+    ErrStatus ReadFiltValue(int64_t& umHgFilt);
+
+    /**
+     * @brief 
+     * @param umHgAvg 
+     * @return ErrStatus:
+     *                      - ZERO_DIV if scale is set to 0, which is incorrect (clear error),
+     *                      - AVG_NRDY
+     *                      - OK
+     */
+    ErrStatus ReadAvgValue(int64_t& umHgAvg);
+
+    /**
+     * @brief Set the codeOffset_ object
+     * @param code raw value from sensor at point 0
+     * @return ErrStatus
+     */
+    void setCodeOffset(int32_t code);
+
+    /**
+     * @brief Set the codeCountsPerUmHg_ object
+     * @param code calculated value of scale stated by selected equation
+     * @return ErrStatus
+     */
+    ErrStatus setCodeCountsPerUmHg(int32_t code);
+
+    /**
+     * @brief Set the iirShift_ object
+     * @param shift value of IIR filter shift
+     * @return ErrStatus
+     */
+    ErrStatus setIirShift(uint8_t shift);
+
+    /**
+     * @brief Set the avgWindowSize_ object
+     * @param size size of averaging window
+     * @return ErrStatus
+     */
+    ErrStatus setAvgWindowSize(uint8_t size);
+
+    /**
+     * @brief reset() function used for reseting Meas Class settings
+     */
+    void reset();
 
 private:
-    void reset_();
-    meas_StatusTypeDef setCodeOffset_(int32_t* code);
-    meas_StatusTypeDef setCodeCountsPerUmHg_(int32_t* code);
-    meas_StatusTypeDef setIirShift_(uint8_t* shift);
-    meas_StatusTypeDef setAvgWindowSize_(uint8_t* size);
-
-    // variables
     int32_t codeOffset_;
     int32_t codeCountPerUmHg_;
 
     int64_t codeFilt_;
     uint8_t iirShift_;
-    // bool    filtValueReady_;
     bool    firstSample_;
 
     int64_t codeAverage_;

@@ -9,148 +9,124 @@
  * 
  */
 
-#include "cli_meas_handlers.hpp"
 #include "meas_task_api.h"
+#include "cli_api.h"
+#include "esp_err.h"
+#include "string.h"
 
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-
-static void cli_WriteString(IoStream& stream, const char* msg)
+static esp_err_t
+cmd_Reset(int argc, char** argv, char* resp, size_t size)
 {
-    stream.write(msg, strlen(msg));
+    meas_TaskCommand_t cmd = {};
+    cmd.type = RESET;
+    meas_TaskSendCmd(cmd);
+    snprintf(resp, size, "Meas reset\r\n");
+    return ESP_OK;
 }
 
-static void cli_MeasPrintUsage(IoStream& stream)
+static esp_err_t
+cmd_SetOffset(int argc, char** argv, char* resp, size_t size)
 {
-    cli_WriteString(stream,
-        "usage:\n"
-        "  meas reset\n"
-        "  meas offset <code>\n"
-        "  meas scale <counts_per_umhg>\n"
-        "  meas iir <shift>\n"
-        "  meas avg <window_size>\n");
+    if (argc < 2) {
+        snprintf(resp, size, "Usage: set_offset <counts>\r\n");
+        return ESP_FAIL;
+    }
+
+    int32_t value = atoi(argv[1]);
+    meas_TaskCommand_t cmd = {};
+    cmd.type = SET_OFFSET;
+    cmd.arg.codeOffset = value;
+
+    meas_TaskSendCmd(cmd);
+    snprintf(resp, size, "Offset set to %ld\r\n", value);
+    return ESP_OK;
 }
 
-static bool cli_ParseInt32(const char* text, int32_t* value)
+static esp_err_t
+cmd_SetIirShift(int argc, char** argv, char* resp, size_t size)
 {
-    if (text == nullptr || value == nullptr || *text == '\0')
-    {
-        return false;
+    if (argc < 2) {
+        snprintf(resp, size, "Usage: set_iir <shift>\r\n");
+        return ESP_FAIL;
     }
 
-    char* end = nullptr;
-    errno = 0;
-    long parsed = strtol(text, &end, 0);
-    if (errno != 0 || end == text || *end != '\0' || parsed < INT32_MIN || parsed > INT32_MAX)
-    {
-        return false;
-    }
+    uint8_t value = atoi(argv[1]);
+    meas_TaskCommand_t cmd = {};
+    cmd.type = SET_IIR_SHIFT;
+    cmd.arg.iirShift = value;
 
-    *value = (int32_t)parsed;
-    return true;
+    meas_TaskSendCmd(cmd);
+    snprintf(resp, size, "IIR shift set to %u\r\n", value);
+    return ESP_OK;
 }
 
-static bool cli_ParseUint8(const char* text, uint8_t* value)
+static esp_err_t
+cmd_SetCountsPerUmHg(int argc, char** argv, char* resp, size_t size)
 {
-    int32_t parsed = 0;
-    if (!cli_ParseInt32(text, &parsed) || parsed < 0 || parsed > UINT8_MAX)
-    {
-        return false;
+    if (argc < 2) {
+        snprintf(resp, size, "Usage: set_scale <counts>\r\n");
+        return ESP_FAIL;
     }
 
-    *value = (uint8_t)parsed;
-    return true;
+    int32_t value = atoi(argv[1]);
+    meas_TaskCommand_t cmd = {};
+    cmd.type = SET_COUNTS_PER_UMHG;
+    cmd.arg.codeCountsPerUmHg = value;
+
+    meas_TaskSendCmd(cmd);
+    snprintf(resp, size, "Counts per umHg set to %lu\r\n", value);
+    return ESP_OK;
 }
 
-static int cli_SendMeasCmd(IoStream& stream, const meas_TaskCmdTypeDef* cmd)
+static esp_err_t
+cmd_SetAvgWindow(int argc, char** argv, char* resp, size_t size)
 {
-    if (!meas_TaskSendCmd(cmd))
-    {
-        cli_WriteString(stream, "meas: send failed\n");
-        return -1;
+    if (argc < 2) {
+        snprintf(resp, size, "Usage: set_avgwin <size>\r\n");
+        return ESP_FAIL;
     }
 
-    cli_WriteString(stream, "meas: ok\n");
-    return 0;
+    uint8_t value = atoi(argv[1]);
+    meas_TaskCommand_t cmd = {};
+    cmd.type = SET_AVG_WINDOW_SIZE;
+    cmd.arg.avgWindowSize = value;
+
+    meas_TaskSendCmd(cmd);
+    snprintf(resp, size, "AVG window size to %u\r\n", value);
+    return ESP_OK;
 }
 
-static int cli_MeasTaskHandler(IoStream& stream, int argc, char** argv)
-{
-    meas_TaskCmdTypeDef cmd = {};
-
-    if (argc < 2)
-    {
-        cli_MeasPrintUsage(stream);
-        return -1;
-    }
-
-    if (strcmp(argv[1], "reset") == 0)
-    {
-        if (argc != 2)
-        {
-            cli_MeasPrintUsage(stream);
-            return -1;
-        }
-
-        cmd.type = MEAS_TASK_CMD_RESET;
-        return cli_SendMeasCmd(stream, &cmd);
-    }
-
-    if (strcmp(argv[1], "offset") == 0)
-    {
-        if (argc != 3 || !cli_ParseInt32(argv[2], &cmd.arg.codeOffset))
-        {
-            cli_WriteString(stream, "usage: meas offset <code>\n");
-            return -1;
-        }
-
-        cmd.type = MEAS_TASK_CMD_SET_OFFSET;
-        return cli_SendMeasCmd(stream, &cmd);
-    }
-
-    if (strcmp(argv[1], "scale") == 0 || strcmp(argv[1], "counts") == 0)
-    {
-        if (argc != 3 || !cli_ParseInt32(argv[2], &cmd.arg.codeCountsPerUmHg) || cmd.arg.codeCountsPerUmHg == 0)
-        {
-            cli_WriteString(stream, "usage: meas scale <nonzero_counts_per_umhg>\n");
-            return -1;
-        }
-
-        cmd.type = MEAS_TASK_CMD_SET_COUNTS_PER_UMHG;
-        return cli_SendMeasCmd(stream, &cmd);
-    }
-
-    if (strcmp(argv[1], "iir") == 0)
-    {
-        if (argc != 3 || !cli_ParseUint8(argv[2], &cmd.arg.iirShift) || cmd.arg.iirShift > 30)
-        {
-            cli_WriteString(stream, "usage: meas iir <shift_0_30>\n");
-            return -1;
-        }
-
-        cmd.type = MEAS_TASK_CMD_SET_IIR_SHIFT;
-        return cli_SendMeasCmd(stream, &cmd);
-    }
-
-    if (strcmp(argv[1], "avg") == 0)
-    {
-        if (argc != 3 || !cli_ParseUint8(argv[2], &cmd.arg.avgWindowSize) || cmd.arg.avgWindowSize == 0)
-        {
-            cli_WriteString(stream, "usage: meas avg <window_size_1_255>\n");
-            return -1;
-        }
-
-        cmd.type = MEAS_TASK_CMD_SET_AVG_WINDOW_SIZE;
-        return cli_SendMeasCmd(stream, &cmd);
-    }
-
-    cli_MeasPrintUsage(stream);
-    return -1;
-}
-
-const cli_CommandTypeDef CLI_MEAS_COMMAND = {
-    .name = "meas",
-    .help = "measurement control",
-    .handler = cli_MeasTaskHandler,
+static const cli_Command_t s_MeasCommands[] = {
+    {"set_offset",      cmd_SetOffset,        "Set code offset"},
+    {"set_scale",       cmd_SetCountsPerUmHg, "Set scale"},
+    {"set_iir",         cmd_SetIirShift,      "Set IIR shift"},
+    {"set_avgwin",      cmd_SetAvgWindow, "Set avg window size"},
+    {"reset",           cmd_Reset,            "Reset Meas state"},
 };
+
+static esp_err_t
+cmd_Meas(int argc, char** argv, char* resp, size_t size)
+{
+    if (argc < 2) {
+        snprintf(resp, size, "Usage: meas <command> [args]\r\n");
+        return ESP_FAIL;
+    }
+
+    for (size_t i = 0; i < sizeof(s_MeasCommands) / sizeof(s_MeasCommands[0]); i++)
+    {
+        if (strcmp(argv[1], s_MeasCommands[i].name) == 0)
+        {
+            return s_MeasCommands[i].handler(argc - 1, &argv[1], resp, size);
+        }
+    }
+
+    snprintf(resp, size, "Unknown: meas %s\r\n", argv[1]);
+    return ESP_OK;
+}
+
+esp_err_t
+cli_MeasRegister(void)
+{
+    static const cli_Command_t entry = {"meas", cmd_Meas, "Measurement commands"};
+    return cli_RegisterCommand(&entry);
+}

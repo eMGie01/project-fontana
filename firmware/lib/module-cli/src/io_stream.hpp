@@ -1,5 +1,5 @@
 /**
- * @file iostream.hpp
+ * @file io_stream.hpp
  * @author Marek Gałeczka (marek.galeczka@outlook.com)
  * @brief 
  * @version 0.1
@@ -9,8 +9,8 @@
  * 
  */
 
-#ifndef IOSTREAM_HPP
-#define IOSTREAM_HPP
+#ifndef IO_STREAM_HPP
+#define IO_STREAM_HPP
 
 #include <stddef.h>
 

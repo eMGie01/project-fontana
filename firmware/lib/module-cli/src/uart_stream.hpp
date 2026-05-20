@@ -12,8 +12,8 @@
 #ifndef UART_STREAM_HPP
 #define UART_STREAM_HPP
 
-#include "iostream.hpp"
 #include "uart.h"
+#include "io_stream.hpp"
 
 class UartStream : public IoStream
 {

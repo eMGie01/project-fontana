@@ -16,7 +16,6 @@ Write(int32_t code)
 {
     int32_t offCode = code - codeOffset_;
 
-    // 1. filtering the input code
     if (firstSample_)
     {
         firstSample_ = false;
@@ -29,7 +28,7 @@ Write(int32_t code)
 
     // 2. average value from window
     codeAverageSum_ += offCode;
-    if (averageIndexCount_++ < averageWindowSize_)
+    if (++averageIndexCount_ < averageWindowSize_)
     {
         return;
     }
@@ -40,29 +39,37 @@ Write(int32_t code)
     averageValueReady_ = true;
 }
 
-meas_StatusTypeDef Meas::
-Read(meas_ReadTypeDef& values)
+ErrStatus Meas::
+ReadFiltValue(int64_t& umHgFilt)
 {
     if (codeCountPerUmHg_ == 0)
     {
-        return MEAS_ERR_ZERO_DIV;
+        return ErrStatus::INVAL;
     }
+    umHgFilt = codeFilt_ / codeCountPerUmHg_;
+    return ErrStatus::OK;
+}
 
-    values.umHgFilt = codeFilt_ / codeCountPerUmHg_;
+ErrStatus Meas::
+ReadAvgValue(int64_t& umHgAvg)
+{
+    if (codeCountPerUmHg_ == 0)
+    {
+        return ErrStatus::INVAL;
+    }
     if (averageValueReady_)
     {
         averageValueReady_ = false;
-        values.umHgAvg = codeAverage_ / codeCountPerUmHg_;
+        umHgAvg = codeAverage_ / codeCountPerUmHg_;
+        return ErrStatus::OK;
     }
-
-    return MEAS_ERR_OK;
+    return ErrStatus::TIMEOUT;
 }
 
 void Meas::
-reset_(void)
+reset(void)
 {
     codeFilt_ = 0;
-    // filtValueReady_ = false;
     firstSample_ = true;
     codeAverage_ = 0;
     codeAverageSum_ = 0;
@@ -70,88 +77,37 @@ reset_(void)
     averageValueReady_ = false;
 }
 
-meas_StatusTypeDef Meas::
-setCodeOffset_(int32_t* code)
+void Meas::
+setCodeOffset(int32_t code)
 {
-    if (code == NULL)
-    {
-        return MEAS_ERR_INVAL;
-    }
-    codeOffset_ = *code;
-    return MEAS_ERR_OK;
+    codeOffset_ = code;
 }
 
-meas_StatusTypeDef Meas::
-setCodeCountsPerUmHg_(int32_t* countsPerUmHg)
+ErrStatus Meas::
+setCodeCountsPerUmHg(int32_t countsPerUmHg)
 {
-    if (countsPerUmHg == NULL || *countsPerUmHg == 0)
+    if (countsPerUmHg == 0)
     {
-        return MEAS_ERR_INVAL;
+        return ErrStatus::INVAL;
     }
-    codeCountPerUmHg_ = *countsPerUmHg;
-    return MEAS_ERR_OK;
+    codeCountPerUmHg_ = countsPerUmHg;
+    return ErrStatus::OK;
 }
 
-meas_StatusTypeDef Meas::
-setIirShift_(uint8_t* shift)
+ErrStatus Meas::
+setIirShift(uint8_t shift)
 {
-    if (shift == NULL)
+    if (shift < 1 || shift > 4)
     {
-        return MEAS_ERR_INVAL;
+        return ErrStatus::INVAL;
     }
-    iirShift_ = *shift;
-    return MEAS_ERR_OK;
+    iirShift_ = shift;
+    return ErrStatus::OK;
 }
 
-meas_StatusTypeDef Meas::
-setAvgWindowSize_(uint8_t* size)
+ErrStatus Meas::
+setAvgWindowSize(uint8_t size)
 {
-    if (size == NULL)
-    {
-        return MEAS_ERR_INVAL;
-    }
-    averageWindowSize_ = *size;
-    return MEAS_ERR_OK;
-}
-
-meas_StatusTypeDef Meas::
-Ioctl(meas_IoctlTypeDef request, void* arg)
-{
-    meas_StatusTypeDef status;
-
-    switch (request)
-    {
-    case MEAS_IOCTL_RESET:
-    {
-        reset_();
-        status = MEAS_ERR_OK;
-        break;
-    }
-    case MEAS_IOCTL_SET_CODE_OFFSET:
-    {
-        status = setCodeOffset_((int32_t *)arg);
-        break;
-    }
-    case MEAS_IOCTL_SET_CODE_COUNTS_PER_UMHG:
-    {
-        status = setCodeCountsPerUmHg_((int32_t *)arg);
-        break;
-    }
-    case MEAS_IOCTL_SET_IIR_SHIFT:
-    {
-        status = setIirShift_((uint8_t *)arg);
-        break;
-    }
-    case MEAS_IOCTL_SET_AVG_WINDOW_SIZE:
-    {
-        status = setAvgWindowSize_((uint8_t *)arg);
-        break;
-    }
-    default:
-    {
-        return MEAS_ERR_INVAL;
-    }
-    }
-
-    return status;
+    averageWindowSize_ = size;
+    return ErrStatus::OK;
 }

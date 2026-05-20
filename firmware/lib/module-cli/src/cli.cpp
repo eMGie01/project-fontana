@@ -1,5 +1,5 @@
 /**
- * @file cli.cpp
+ * @file command_line_interface.cpp
  * @author Marek Galeczka (marek.galeczka@outlook.com)
  * @brief 
  * @version 0.1
@@ -15,108 +15,86 @@
 #include <cstring>
 #include <ctype.h>
 
-static const char * TAG = "Cli";
-static constexpr size_t kMaxTokens = 8;
-
 void Cli::
-Read(size_t count)
+Push(const char c)
 {
-    if (count == 0)
+    if (lineReady_)
     {
         return;
     }
 
-    char buff[CLI_MAX_LINE];
-    if (count > sizeof(buff))
+    if ( c == '\n' || c == '\r' )
     {
-        count = sizeof(buff);
-    }
-
-    int n = stream_.read(buff, count);
-    if (n <= 0)
-    {
+        if (pos_ > 0)
+        {
+            line_[pos_] = '\0';
+            lineReady_ = true;
+        }
         return;
     }
 
-    for (size_t i = 0; i < n; ++i)
+    if (pos_ < sizeof(line_) - 1)
     {
-        if ( buff[i] == '\n' || buff[i] == '\r' )
-        {
-            if ( pos_ > 0 )
-            {
-                line_[pos_] = '\0';
-                processLine_();
-                pos_ = 0;
-            }
-            continue;
-        }
-
-        if ( pos_ < sizeof(line_) - 1 )
-        {
-            line_[pos_++] = buff[i];
-        }
-        else
-        {
-            pos_ = 0;
-        }
+        line_[pos_++] = c;
     }
 }
 
-int Cli::
-RegisterCommand(const cli_CommandTypeDef* cmd)
+bool Cli::
+HasLine() const
 {
-    if (cmd == nullptr || cmd->name == nullptr || cmd->handler == nullptr)
-    {
-        ESP_LOGE(TAG, "invalid command registration");
-        return -1;
-    }
-
-    if (commandCount_ >= CLI_MAX_COMMANDS)
-    {
-        ESP_LOGE(TAG, "command table full");
-        return -1;
-    }
-
-    for (size_t i = 0; i < commandCount_; ++i)
-    {
-        if (strcmp(commands_[i]->name, cmd->name) == 0)
-        {
-            ESP_LOGE(TAG, "command already registered: `%s`", cmd->name);
-            return -1;
-        }
-    }
-
-    commands_[commandCount_++] = cmd;
-    return 0;
+    return lineReady_;
 }
 
-
-void Cli::
-processLine_(void)
-{   
-    ESP_LOGD(TAG, "processing line: `%s`", line_);
-
-    char * tokens[kMaxTokens];
-    size_t token_count = tokenizeLine_(tokens);
-
-    if ( !token_count || token_count > kMaxTokens )
+esp_err_t Cli::
+Execute(char* response, size_t responseSize)
+{
+    if (!lineReady_)
     {
-        ESP_LOGE(TAG, "invalid token count: `%zu`", token_count);
-        return;
-    }        
+        return ESP_ERR_TIMEOUT;
+    }
 
-    dispatchModule_(tokens, token_count);
+    char* tokens[K_MAX_TOKENS];
+    size_t count = tokenizeLine_(tokens);
+
+    if (!count || count > K_MAX_TOKENS)
+    {
+        pos_ = 0;
+        lineReady_ = false;
+        return ESP_FAIL;
+    }
+
+    dispatchCommand_(tokens, count, response, responseSize);
+
+    pos_ = 0;
+    lineReady_ = false;
+    return ESP_OK;
 }
 
+esp_err_t Cli::
+RegisterCommand(const cli_Command_t* entry)
+{
+    if (entry == nullptr)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (commandCount_ >= MAX_COMMANDS)
+    {
+        return ESP_ERR_NO_MEM;
+    }
+
+    commands_[commandCount_++] = *entry;
+    return ESP_OK;
+}
 
 size_t Cli::
 tokenizeLine_(char ** tokens)
 {   
-    ESP_LOGD(TAG, "tokenizing line...");
+    ESP_LOGD(tag, "tokenizing line...");
     
     if ( !tokens )
     {
-        ESP_LOGE(TAG, "invalid argument");
+        ESP_LOGE(tag, "invalid argument");
         return 0;
     }
 
@@ -133,13 +111,13 @@ tokenizeLine_(char ** tokens)
             break;
         }
         
-        if ( count < kMaxTokens )
+        if ( count < K_MAX_TOKENS )
         {
             tokens[count++] = ptr;
         }
         else
         {
-            return (kMaxTokens + 1);
+            return (K_MAX_TOKENS + 1);
         }
             
         while ( (*ptr != '\0') && !isspace((unsigned char)*ptr) )
@@ -159,25 +137,24 @@ tokenizeLine_(char ** tokens)
 
 
 void Cli::
-dispatchModule_(char ** tokens, size_t count)
+dispatchCommand_(char** tokens, size_t count, char* response, size_t responseSize)
 {   
-    ESP_LOGD(TAG, "dispatching module for token: `%s`", tokens[0]);
+    ESP_LOGD(tag, "dispatching command: `%s`", tokens[0]);
 
     if ( !tokens || count == 0 )
     {
-        ESP_LOGE(TAG, "dispatchModule_ invalid args, count: `%zu`", count);
+        ESP_LOGE(tag, "invalid args, count: `%zu`", count);
         return;
     }
 
     for (size_t i = 0; i < commandCount_; ++i)
     {
-        if (strcmp(tokens[0], commands_[i]->name) == 0)
+        if (strcmp(tokens[0], commands_[i].name) == 0)
         {
-            commands_[i]->handler(stream_, count, tokens);
+            commands_[i].handler(count, tokens, response, responseSize);
             return;
         }
     }
 
-    const char* msg = "unknown command\n";
-    stream_.write(msg, strlen(msg));
+    snprintf(response, responseSize, "Unknown: %s\r\n", tokens[0]);
 }
