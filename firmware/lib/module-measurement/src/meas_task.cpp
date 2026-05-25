@@ -2,242 +2,301 @@
  * @file meas_task.cpp
  * @author Marek Galeczka (marek.galeczka@outlook.com)
  * @brief 
- * @version 0.1
- * @date 2026-05-20
+ * @version 0.5
+ * @date 2026-05-23
  * 
  * @copyright Copyright (c) 2026
  * 
  */
 
-#include "meas_task.h"
-#include "meas_task_api.h"
-#include "measurement.hpp"
-#include "hx711.h"
-#include "err_status.hpp"
+#include "meas_task.hpp"
+#include "esp_log.h"
 
-#include "freertos/FreeRTOS.h"
-#include "driver/gpio.h"
-#include "esp_log.h"    // to be deleted
+//
 
-static constexpr gpio_num_t PIN_SCK      = GPIO_NUM_3;
-static constexpr gpio_num_t PIN_DOUT     = GPIO_NUM_2;
-static constexpr uint8_t    SENSOR_MODE  = HX711_MODE_A128;
+static constexpr char TAG[] = "MEAS_TASK";
 
-static meas_TaskConfig_t    s_Config = {};
-static TaskHandle_t         s_TaskHandle = nullptr;
-static bool                 s_TaskInitialized = false;
+//
 
-static hx711_TypeDef        s_Sensor = {};
-static hx711_HandleTypeDef  s_SensorHandle = &s_Sensor;
-static Meas                 s_Meas;
-static QueueHandle_t        s_EventQueue = nullptr;
-
-void IRAM_ATTR
-meas_DataReadyCB(void* arg)
+ErrStatus MeasTask::
+init(Config cfg)
 {
+    if (initialized_ == true)
+    {
+        ESP_LOGE(TAG, "cannot initialize already running module %s", TAG);
+        return ErrStatus::FAIL;
+    }
+    config_ = cfg;
+    eventQueue_ = xQueueCreate(8, sizeof(Event));
+    if (eventQueue_ == nullptr)
+    {
+        ESP_LOGE(TAG, "eventQueue_ creation failed");
+        return ErrStatus::FAIL;
+    }
+    hx711_StatusTypeDef sensorRes = hx711_Open(&sensor_, PIN_SCK, PIN_DOUT, SENSOR_MODE, 0, cbEntry_, this);
+    if (sensorRes != HX711_ERR_OK)
+    {
+        ESP_LOGE(TAG, "initialization of hx711 failed with error: %d", sensorRes);
+        vQueueDelete(eventQueue_);
+        eventQueue_ = nullptr;
+        return ErrStatus::FAIL;
+    }
+    initialized_ = true;
+    ESP_LOGI(TAG, "task initialized successfully");
+    return ErrStatus::OK;
+}
+
+ErrStatus MeasTask::
+start()
+{
+    if (taskHandle_ != nullptr)
+    {
+        ESP_LOGE(TAG, "starting failed, task already running");
+        return ErrStatus::FAIL;
+    }
+
+    BaseType_t taskRes = xTaskCreate(taskEntry_, "MEAS_TASK", config_.stackSize, this, config_.priority, &taskHandle_);
+    if (taskRes == pdTRUE)
+    {
+        ESP_LOGI(TAG, "task started successfully");
+        return ErrStatus::OK;
+    }
+    ESP_LOGE(TAG, "initialization of task failed");
+    return ErrStatus::FAIL;
+}
+
+ErrStatus MeasTask::
+stop()
+{
+    if (taskHandle_ == nullptr)
+    {
+        return ErrStatus::OK;
+    }
+
+    vTaskDelete(taskHandle_);
+    taskHandle_ = nullptr;
+    if (xQueueReset(eventQueue_) == pdFALSE)
+    {
+        ESP_LOGE(TAG, "reset of eventQueue_ failed");
+        return ErrStatus::FAIL;
+    }
+    initialized_ = false;
+    ESP_LOGI(TAG, "task stopped successfully");
+    return ErrStatus::OK;
+}
+
+//
+
+ErrStatus MeasTask::
+reset(void)
+{
+    Command cmd = {};
+    cmd.type = CommandType::RESET;
+    return sendCommand_(cmd);
+}
+
+ErrStatus MeasTask::
+setOffset(int32_t offset)
+{
+    Command cmd = {};
+    cmd.type = CommandType::SET_OFFSET;
+    cmd.arg.codeOffset = offset;
+    return sendCommand_(cmd);
+}
+
+ErrStatus MeasTask::
+setCountsPerUmHg(int32_t counts)
+{
+    Command cmd = {};
+    cmd.type = CommandType::SET_COUNTS_PER_UMHG;
+    cmd.arg.codeCountsPerUmHg = counts;
+    return sendCommand_(cmd);
+}
+
+ErrStatus MeasTask::
+setIirShift(uint8_t shift)
+{
+    Command cmd = {};
+    cmd.type = CommandType::SET_IIR_SHIFT;
+    cmd.arg.iirShift = shift;
+    return sendCommand_(cmd);
+}
+
+ErrStatus MeasTask::
+setAvgWindowSize(uint8_t avgwin)
+{
+    Command cmd = {};
+    cmd.type = CommandType::SET_AVG_WINDOW_SIZE;
+    cmd.arg.avgWindowSize = avgwin;
+    return sendCommand_(cmd);
+}
+
+//
+
+void MeasTask::
+taskEntry_(void* pvParameters)
+{
+    auto* self = static_cast<MeasTask*>(pvParameters);
+    self->run_();
+}
+
+void IRAM_ATTR MeasTask::
+cbEntry_(void* arg)
+{
+    auto* self = static_cast<MeasTask*>(arg);
+    self->notifySensorReady_ISR();
+}
+
+void MeasTask::
+notifySensorReady_ISR()
+{
+    if (eventQueue_ == nullptr)
+    {
+        return;
+    }
     BaseType_t hpTaskWoken = pdFALSE;
-    meas_TaskEvent_t event = {};
-    event.type = SENSOR_RDY;
-    xQueueSendFromISR(s_EventQueue, &event, &hpTaskWoken);
+    Event event = {};
+    event.type = EventType::SENSOR_RDY;
+    xQueueSendFromISR(eventQueue_, &event, &hpTaskWoken);
     if (hpTaskWoken == pdTRUE)
     {
         portYIELD_FROM_ISR();
     }
 }
 
-static void
-meas_SensorRead(void)
+void MeasTask::
+run_()
 {
-    int32_t code;
-    int64_t filtValue = 0;
-    int64_t avgValue = 0;
-    hx711_StatusTypeDef sensorResponse;
-    ErrStatus response;
-
-    sensorResponse = hx711_Read(s_SensorHandle, &code);
-    if (sensorResponse != HX711_ERR_OK)
-    {
-        // log error
-        return;
-    }
-
-    uint64_t time = (uint64_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
-
-    s_Meas.Write(code);
-    (void)s_Meas.ReadFiltValue(filtValue);
-    // save filt val to snapshot
-
-    response = s_Meas.ReadAvgValue(avgValue);
-    if (response == ErrStatus::TIMEOUT)
-    {
-        /* for now i log with ESP_LOGX() just to check correctness of my code */
-        ESP_LOGI("meas_task", "[%lld, %ld, %lld]", time, code, filtValue);
-        /* everything up to next comment will be deleted */
-        return;
-    }
-    // save avg val to snapshot
-    /* for now i log with ESP_LOGX() just to check correctness of my code */
-    ESP_LOGI("meas_task", "[%lld, %ld, %lld, %lld]", time, code, filtValue, avgValue);
-    /* everything up to next comment will be deleted */
-
-}
-
-static void
-meas_CommandHandle(const meas_TaskCommand_t cmd)
-{
-    ErrStatus response;
-
-    switch(cmd.type)
-    {
-    case RESET:
-    {
-        s_Meas.reset();
-        // log
-        break;
-    }
-    case SET_OFFSET:
-    {
-        s_Meas.setCodeOffset(cmd.arg.codeOffset);
-        // log changed code offset
-        break;
-    }
-    case SET_COUNTS_PER_UMHG:
-    {
-        response = s_Meas.setCodeCountsPerUmHg(cmd.arg.codeCountsPerUmHg);
-        if (response != ErrStatus::OK)
-        {
-            // log inval
-            break;
-        }
-        // log normal
-        break;
-    }
-    case SET_IIR_SHIFT:
-    {
-        response = s_Meas.setIirShift(cmd.arg.iirShift);
-        if (response != ErrStatus::OK)
-        {
-            // log inval
-            break;
-        }
-        // log normal
-        break;
-    }
-    case SET_AVG_WINDOW_SIZE:
-    {
-        response = s_Meas.setAvgWindowSize(cmd.arg.avgWindowSize);
-        if (response != ErrStatus::OK)
-        {
-            // log inval
-            break;
-        }
-        // log normal
-        break;
-    }
-    default:
-    {
-        // log smth
-        break;
-    }
-    }
-}
-
-static void
-meas_TaskRun(void* pvParameters)
-{
-    meas_TaskEvent_t event;
+    Event event;
     for (;;)
     {
-        if (xQueueReceive(s_EventQueue, &event, portMAX_DELAY) == pdTRUE)
+        if (xQueueReceive(eventQueue_, &event, portMAX_DELAY) == pdTRUE)
         {
-            if (event.type == SENSOR_RDY)
+            if (event.type == EventType::SENSOR_RDY)
             {
-                meas_SensorRead();
+                handleSensorReady_();
             }
-            else if (event.type == CMD)
+            else if (event.type == EventType::COMMAND)
             {
-                meas_CommandHandle(event.cmd);
+                handleCommand_(event.cmd);
             }
             else
             {
-                // log error
+                ESP_LOGW(TAG, "incorrect queue type");
                 continue;
             }
         }
     }
 }
 
-esp_err_t
-meas_TaskInit(meas_TaskConfig_t* cfg)
+ErrStatus MeasTask::
+sendCommand_(const Command& cmd)
 {
-    if (cfg == nullptr)
+    if (eventQueue_ == nullptr)
     {
-        // log
-        return ESP_ERR_INVALID_ARG;
+        ESP_LOGE(TAG, "eventQueue_ is nullptr");
+        return ErrStatus::NODEV;
     }
-
-    if (s_TaskInitialized != false)
-    {
-        // log task already initialized
-        return ESP_FAIL;
-    }
-
-    s_Config = *cfg;
-    s_EventQueue = xQueueCreate(8, sizeof(meas_TaskEvent_t));
-
-    hx711_StatusTypeDef sensorRes = hx711_Open(s_SensorHandle, PIN_SCK, PIN_DOUT, SENSOR_MODE, 0, meas_DataReadyCB, s_EventQueue);
-    if (sensorRes != HX711_ERR_OK)
-    {
-        // log
-        return ESP_FAIL;
-    }
-
-    s_TaskInitialized = true;
-    return ESP_OK;
+    Event event = {};
+    event.type = EventType::COMMAND;
+    event.cmd = cmd;
+    return (xQueueSend(eventQueue_, &event, portMAX_DELAY) == pdTRUE) ? ErrStatus::OK : ErrStatus::FAIL;
 }
 
-esp_err_t
-meas_TaskStart(void)
+void MeasTask::
+handleCommand_(const Command& cmd)
 {
-    if (s_TaskHandle != nullptr)
+    ErrStatus response;
+    switch(cmd.type)
     {
-        // log
-        return ESP_FAIL;
-    }
-
-    BaseType_t taskRes = xTaskCreate(meas_TaskRun, "MEAS_TASK", s_Config.stackSize, nullptr, s_Config.priority, &s_TaskHandle);
-    if (taskRes != pdTRUE)
+    case CommandType::RESET:
     {
-        // log
-        return ESP_FAIL;
+        meas_.reset();
+        ESP_LOGI(TAG, "meas values reset");
+        break;
     }
-    return ESP_OK;
+    case CommandType::SET_OFFSET:
+    {
+        meas_.setCodeOffset(cmd.arg.codeOffset);
+        ESP_LOGI(TAG, "meas offset changed to: %ld", cmd.arg.codeOffset);
+        break;
+    }
+    case CommandType::SET_COUNTS_PER_UMHG:
+    {
+        response = meas_.setCodeCountsPerUmHg(cmd.arg.codeCountsPerUmHg);
+        if (response != ErrStatus::OK)
+        {
+            ESP_LOGW(TAG, "meas code_counts_per_umHg cannot be set to: %ld", cmd.arg.codeCountsPerUmHg);
+            break;
+        }
+        ESP_LOGI(TAG, "meas code_counts_per_umHg set to: %ld", cmd.arg.codeCountsPerUmHg);
+        break;
+    }
+    case CommandType::SET_IIR_SHIFT:
+    {
+        response = meas_.setIirShift(cmd.arg.iirShift);
+        if (response != ErrStatus::OK)
+        {
+            ESP_LOGW(TAG, "meas iir_shift cannot be set to: %d", cmd.arg.iirShift);
+            break;
+        }
+        ESP_LOGI(TAG, "meas iir_shift set to: %d", cmd.arg.iirShift);
+        break;
+    }
+    case CommandType::SET_AVG_WINDOW_SIZE:
+    {
+        response = meas_.setAvgWindowSize(cmd.arg.avgWindowSize);
+        if (response != ErrStatus::OK)
+        {
+            ESP_LOGW(TAG, "meas avgwin cannot be set to: %d", cmd.arg.avgWindowSize);
+            break;
+        }
+        ESP_LOGI(TAG, "meas avgwin set to: %d", cmd.arg.avgWindowSize);
+        break;
+    }
+    default:
+    {
+        ESP_LOGE(TAG, "incorrect command type");
+        break;
+    }
+    }
 }
 
-esp_err_t
-meas_TaskStop(void)
+void MeasTask::
+handleSensorReady_()
 {
-    if (s_TaskHandle == nullptr)
+    hx711_StatusTypeDef sensorResponse;
+    ErrStatus response;
+
+    int32_t code;
+    int64_t filtVal = 0;
+    int64_t avgVal = 0;
+    
+    sensorResponse = hx711_Read(&sensor_, &code);
+    if (sensorResponse != HX711_ERR_OK)
     {
-        return ESP_OK;
+        ESP_LOGE(TAG, "Sensor read failed with error (%d)", sensorResponse);
+        return;
     }
 
-    vTaskDelete(s_TaskHandle);
-    s_TaskHandle = nullptr;
-    xQueueReset(s_EventQueue);
-    s_TaskInitialized = false;
-    return ESP_OK;
+    uint64_t time = (uint64_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+    meas_.write(code);
+    (void)meas_.readFiltVal(filtVal);
+    // save filt val to snapshot
+
+    response = meas_.readAvgVal(avgVal);
+    if (response == ErrStatus::TIMEOUT)
+    {
+        /* for now i log with ESP_LOGX() just to check correctness of my code */
+        ESP_LOGI(TAG, "[%lld, %ld, %lld]", time, code, filtVal);
+        /* everything up to next comment will be deleted */
+        return;
+    }
+    // save avg val to snapshot
+    /* for now i log with ESP_LOGX() just to check correctness of my code */
+    ESP_LOGI(TAG, "[%lld, %ld, %lld, %lld]", time, code, filtVal, avgVal);
+    /* everything up to next comment will be deleted */
 }
 
-esp_err_t meas_TaskSendCmd(const meas_TaskCommand_t cmd)
-{
-	if (s_EventQueue == nullptr)
-	{
-		return ESP_ERR_INVALID_ARG;
-	}
-	meas_TaskEvent_t event = {
-        .type = CMD,
-        .cmd = cmd
-    };
-	return (xQueueSend(s_EventQueue, &event, portMAX_DELAY) == pdTRUE) ? ESP_OK : ESP_FAIL;
-}
+//

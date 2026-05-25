@@ -40,12 +40,12 @@ public:
     ~Meas() = default;
 
     /**
-     * @brief Write() function used for pushing and computing new data received by sensor
+     * @brief write() function used for pushing and computing new data received by sensor
      *        *2026.05.18* - it pushes data through IIR filter (for filtering) and performs averaging in specified,
      *                       by @param averageWindowSize window size
      * @param code raw output from sensor
      */
-    void Write(int32_t code);
+    void write(int32_t code);
 
     /**
      * @brief 
@@ -54,7 +54,7 @@ public:
      *                      - ZERO_DIV if scale is set to 0, which is incorrect (clear error),
      *                      - OK
      */
-    ErrStatus ReadFiltValue(int64_t& umHgFilt);
+    ErrStatus readFiltVal(int64_t& umHgFilt);
 
     /**
      * @brief 
@@ -64,7 +64,7 @@ public:
      *                      - AVG_NRDY
      *                      - OK
      */
-    ErrStatus ReadAvgValue(int64_t& umHgAvg);
+    ErrStatus readAvgVal(int64_t& umHgAvg);
 
     /**
      * @brief Set the codeOffset_ object

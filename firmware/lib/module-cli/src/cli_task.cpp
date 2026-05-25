@@ -1,179 +1,178 @@
-/**
- * @file cli_task.cpp
- * @author Marek Galeczka (marek.galeczka@outlook.com)
- * @brief 
- * @version 0.2
- * @date 2026-05-20
- * 
- * @copyright Copyright (c) 2026
- * 
- */
-
-#include "cli_task.h"
-#include "cli.hpp"
-#include "cli_api.h"
-#include "uart.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#include "driver/uart.h"
-#include "driver/gpio.h"
+#include "cli_task.hpp"
 
 #include <cstring>
 
-static constexpr uart_port_t UART_PORT      = UART_NUM_0;
-static constexpr gpio_num_t  UART_TX        = GPIO_NUM_16;
-static constexpr gpio_num_t  UART_RX        = GPIO_NUM_17;
-static constexpr size_t      TX_BUFF_SIZE   = 0;
-static constexpr size_t      RX_BUFF_SZE    = 256;
+// 
 
-static cli_Config_t     s_Config = {};
-static TaskHandle_t     s_TaskHandle = nullptr;
-static bool             s_TaskInitialized = false;
-
-static uart_fd_t        s_UartFd = UART_FD_INVALID;
-static Cli              s_Cli;
-static QueueHandle_t    s_DataEventQueue = nullptr;
-
-esp_err_t 
-cli_RegisterCommand(const cli_Command_t* entry)
+ErrStatus CliTask::
+init(Config cfg)
 {
-    if (s_TaskHandle != nullptr)
+    if (initialized_ == true)
     {
-        return ESP_FAIL;
+        ESP_LOGE(TAG, "cannot initialize task, task already initialized");
+        return ErrStatus::FAIL;
     }
-    return s_Cli.RegisterCommand(entry);
+    config_ = cfg;
+
+    uart_open_cfg_t uartCfg = {};
+    uartCfg.port = UART_PORT;
+    uartCfg.io_tx = UART_TX;
+    uartCfg.io_rx = UART_RX;
+    uartCfg.baud = 115200;
+    uartCfg.tx_buf_size = TX_BUFF_SIZE;
+    uartCfg.rx_buf_size = RX_BUFF_SZE;
+
+    // Initializing connection with UART
+    uartFd_ = uart_open(&uartCfg);
+    if (uartFd_ == UART_FD_INVALID)
+    {
+        ESP_LOGE(TAG, "initializing connection with UART failed");
+        return ErrStatus::FAIL;
+    }
+
+    // get access to UARTs EventQueue
+    if (uart_ioctl(uartFd_, UART_IOCTL_GET_EVQUEUE, &uartQueue_) != 0)
+    {
+        ESP_LOGE(TAG, "getting access to uart's event Queue failed");
+        uart_close(uartFd_);
+        uartFd_ = UART_FD_INVALID;
+        return ErrStatus::FAIL;
+    }
+
+    initialized_ = true;
+    ESP_LOGI(TAG, "task initialized successfully");
+    return ErrStatus::OK;
 }
 
-static void
-cli_DataHandle(size_t bytesAvailable)
+ErrStatus CliTask::
+start()
+{
+    if (taskHandle_ != nullptr)
+    {
+        ESP_LOGE(TAG, "start failed, task handle is not a nullptr");
+        return ErrStatus::FAIL;
+    }
+
+    BaseType_t taskRes = xTaskCreate(taskEntry_, TAG, config_.stackSize, this, config_.priority, &taskHandle_);
+    if (taskRes != pdTRUE)
+    {
+        ESP_LOGE(TAG, "task creation failed");
+        return ErrStatus::FAIL;
+    }
+
+    ESP_LOGI(TAG, "task started successfully");
+    return ErrStatus::OK;
+}
+
+ErrStatus CliTask::
+stop()
+{
+    if (taskHandle_ == nullptr)
+    {
+        ESP_LOGE(TAG, "cannot stop task, not running");
+        return ErrStatus::OK;
+    }
+
+    vTaskDelete(taskHandle_);
+    taskHandle_ = nullptr;
+
+    if (uartQueue_ != nullptr)
+    {
+        if (xQueueReset(uartQueue_) == pdFALSE)
+        {
+            ESP_LOGE(TAG, "reset of uart Queue failed");
+            return ErrStatus::FAIL;
+        }
+    }
+
+    initialized_ = false;
+    ESP_LOGI(TAG, "task stopped successfully");
+    return ErrStatus::OK;
+}
+
+ErrStatus CliTask::
+registerCommand(const Command& entry)
+{
+    if (taskHandle_ != nullptr)
+    {
+        ESP_LOGE(TAG, "cannot register command after task start");
+        return ErrStatus::FAIL;
+    }
+    return cli_.registerCmd(entry);
+}
+
+// 
+
+void CliTask::
+taskEntry_(void* pvParameters)
+{
+    auto* self = static_cast<CliTask*>(pvParameters);
+    self->run_();
+}
+
+void CliTask::
+run_()
+{
+    uart_event_t uartEvent;
+    for (;;)
+    {
+        if (xQueueReceive(uartQueue_, &uartEvent, portMAX_DELAY) == pdTRUE)
+        {
+            ESP_LOGD(TAG, "uart event type=%d size=%d", uartEvent.type, uartEvent.size);
+            if (uartEvent.type != UART_DATA)
+            {
+                uart_ioctl(uartFd_, UART_IOCTL_FLUSH_RX, nullptr);
+                xQueueReset(uartQueue_);
+                continue;
+            }
+            dataHandle_(uartEvent.size);
+        }
+    }
+}
+
+void CliTask::
+dataHandle_(size_t bytesAvailable)
 {
     char rxBuf[64];
     char response[128];
-
     while (bytesAvailable > 0)
     {
         size_t bytesToRead = (bytesAvailable < sizeof(rxBuf)) ? bytesAvailable : sizeof(rxBuf);
-        int bytesRead = uart_read(s_UartFd, rxBuf, bytesToRead);
+        int bytesRead = uart_read(uartFd_, rxBuf, bytesToRead);
+        ESP_LOGD(TAG, "uart_read=%d", bytesRead);
         if (bytesRead <= 0)
         {
             return;
         }
 
         bytesAvailable -= bytesRead;
-
         for (int i = 0; i < bytesRead; ++i)
         {
-            s_Cli.Push(rxBuf[i]);
+            cli_.push(rxBuf[i]);
 
-            if (!s_Cli.HasLine())
+            if (!cli_.hasLine())
             {
                 continue;
             }
 
             response[0] = '\0';
-            if (s_Cli.Execute(response, sizeof(response)) == ESP_OK && response[0] != '\0')
+            // if (cli_.execute(response, sizeof(response)) == ESP_OK && response[0] != '\0')
+            // {
+            //     uart_write(s_UartFd, response, std::strlen(response));
+            // }
+            ErrStatus st = cli_.execute(response, sizeof(response));
+            // ESP_LOGD(TAG, "st=%d response='%s'", st, response);
+            if (st == ErrStatus::OK && response[0] != '\0')
             {
-                uart_write(s_UartFd, response, std::strlen(response));
+                int written = uart_write(uartFd_, response, std::strlen(response));
+                if (written == 0)
+                {
+                    continue;
+                }
+                ESP_LOGD(TAG, "%s", response);
             }
         }
-    }
+    } 
 }
 
-static void
-cli_TaskRun(void* pvParameters)
-{
-    // adding queues to one Set
-    uart_event_t uartEvent;
-    for (;;)
-    {
-        if (xQueueReceive(s_DataEventQueue, &uartEvent, portMAX_DELAY) == pdTRUE)
-        {
-            if (uartEvent.type != UART_DATA)
-            {
-                uart_ioctl(s_UartFd, UART_IOCTL_FLUSH_RX, nullptr);
-                xQueueReset(s_DataEventQueue);
-                continue;
-            }
-            cli_DataHandle(uartEvent.size);
-        }
-    }
-}
-
-esp_err_t
-cli_TaskInit(cli_Config_t* cfg)
-{
-    if (cfg == nullptr)
-    {
-        // log
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    if (s_TaskInitialized != false)
-    {
-        // log task already initialized
-        return ESP_FAIL;
-    }
-
-    s_Config = *cfg;
-
-    const uart_open_cfg_t uartCfg = {
-        .port = UART_PORT,
-        .io_tx = UART_TX,
-        .io_rx = UART_RX,
-        .baud = 115200,
-        .tx_buf_size = TX_BUFF_SIZE,
-        .rx_buf_size = RX_BUFF_SZE,
-    };
-
-    // Initializing connection with UART
-    s_UartFd = uart_open(&uartCfg);
-    if (s_UartFd == UART_FD_INVALID)
-    {
-        // log
-        return ESP_FAIL;
-    }
-
-    // get access to UARTs EventQueue
-    if (uart_ioctl(s_UartFd, UART_IOCTL_GET_EVQUEUE, &s_DataEventQueue) != 0)
-    {
-        // log
-        return ESP_FAIL;
-    }
-
-    s_TaskInitialized = true;
-    return ESP_OK;
-}
-
-esp_err_t
-cli_TaskStart()
-{
-    if (s_TaskHandle != nullptr)
-    {
-        // log
-        return ESP_FAIL;
-    }
-
-    BaseType_t taskRes = xTaskCreate(cli_TaskRun, "CLI_TASK", s_Config.stackSize, nullptr, s_Config.priority, &s_TaskHandle);
-    if (taskRes != pdTRUE)
-    {
-        // log
-        return ESP_FAIL;
-    }
-    return ESP_OK;
-}
-
-esp_err_t
-cli_TaskStop()
-{
-    if (s_TaskHandle == nullptr)
-    {
-        return ESP_OK;
-    }
-
-    vTaskDelete(s_TaskHandle);
-    s_TaskHandle = nullptr;
-    xQueueReset(s_DataEventQueue);
-    s_TaskInitialized = false;
-    return ESP_OK;
-}
+// 

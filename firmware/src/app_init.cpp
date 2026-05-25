@@ -10,8 +10,10 @@
  */
 
 #include "app.hpp"
-#include "cli_task.h"
-#include "meas_task.h"
+// #include "cli_task.hpp"
+#include "cli_task.hpp"
+#include "cli_meas_handler.hpp"
+#include "meas_task.hpp"
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -31,24 +33,43 @@ app_Init()
         return app_InitStatus::RESTART;
     }
 
-    static cli_Config_t cliConfig = { .stackSize = 3072, .priority = 5 };
-    err = cli_TaskInit(&cliConfig);
-    if (err != ESP_OK) {
-        ESP_LOGE("APP", "CLI init failed: %d", err);
+    static CliTask cliTask;
+    static MeasTask measTask;
+    static CliMeasCmdEntry measCliCmdEntry(&cliTask, &measTask);
+
+    CliTask::Config cliCfg = {};
+    cliCfg.stackSize = 3072;
+    cliCfg.priority = 5;
+
+    MeasTask::Config measCfg = {};
+    measCfg.stackSize = 3072;
+    measCfg.priority = 6;
+    
+    ErrStatus st;
+
+    st = cliTask.init(cliCfg);
+    if (st != ErrStatus::OK)
+    {
+        ESP_LOGE("APP", "failed to init cliTask");
         return app_InitStatus::RESTART;
     }
 
-    static meas_TaskConfig_t measConfig = { .stackSize = 3072, .priority = 6 };
-    err = meas_TaskInit(&measConfig);
-    if (err != ESP_OK) {
-        ESP_LOGE("APP", "MEAS init failed: %d", err);
+    st = measTask.init(measCfg);
+    if (st != ErrStatus::OK)
+    {
+        ESP_LOGE("APP", "failed to init measTask");
         return app_InitStatus::RESTART;
     }
 
-    cli_MeasRegister();
+    st = measCliCmdEntry.cmdRegister();
+    if (st != ErrStatus::OK)
+    {
+        ESP_LOGE("APP", "failed to register meas CLI commands");
+        return app_InitStatus::RESTART;
+    }
 
-    cli_TaskStart();
-    meas_TaskStart();
+    cliTask.start();
+    measTask.start();
 
     return app_InitStatus::DONE;
 }

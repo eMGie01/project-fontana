@@ -13,10 +13,10 @@
 #include "esp_log.h"
 
 #include <cstring>
-#include <ctype.h>
+#include <cctype>
 
 void Cli::
-Push(const char c)
+push(const char c)
 {
     if (lineReady_)
     {
@@ -40,17 +40,17 @@ Push(const char c)
 }
 
 bool Cli::
-HasLine() const
+hasLine() const
 {
     return lineReady_;
 }
 
-esp_err_t Cli::
-Execute(char* response, size_t responseSize)
+ErrStatus Cli::
+execute(char* response, size_t responseSize)
 {
     if (!lineReady_)
     {
-        return ESP_ERR_TIMEOUT;
+        return ErrStatus::TIMEOUT;
     }
 
     char* tokens[K_MAX_TOKENS];
@@ -60,41 +60,41 @@ Execute(char* response, size_t responseSize)
     {
         pos_ = 0;
         lineReady_ = false;
-        return ESP_FAIL;
+        return ErrStatus::FAIL;
     }
 
     dispatchCommand_(tokens, count, response, responseSize);
 
     pos_ = 0;
     lineReady_ = false;
-    return ESP_OK;
+    return ErrStatus::OK;
 }
 
-esp_err_t Cli::
-RegisterCommand(const cli_Command_t* entry)
+ErrStatus Cli::
+registerCmd(const CliControlApi::Command& entry)
 {
-    if (entry == nullptr)
+    if (entry.name == nullptr || entry.handler == nullptr)
     {
-        return ESP_ERR_INVALID_ARG;
+        return ErrStatus::INVAL;
     }
 
     if (commandCount_ >= MAX_COMMANDS)
     {
-        return ESP_ERR_NO_MEM;
+        return ErrStatus::RUNTIME;
     }
 
-    commands_[commandCount_++] = *entry;
-    return ESP_OK;
+    commands_[commandCount_++] = entry;
+    return ErrStatus::OK;
 }
 
 size_t Cli::
 tokenizeLine_(char ** tokens)
 {   
-    ESP_LOGD(tag, "tokenizing line...");
+    ESP_LOGD(TAG, "tokenizing line...");
     
     if ( !tokens )
     {
-        ESP_LOGE(tag, "invalid argument");
+        ESP_LOGE(TAG, "invalid argument");
         return 0;
     }
 
@@ -139,11 +139,11 @@ tokenizeLine_(char ** tokens)
 void Cli::
 dispatchCommand_(char** tokens, size_t count, char* response, size_t responseSize)
 {   
-    ESP_LOGD(tag, "dispatching command: `%s`", tokens[0]);
+    ESP_LOGD(TAG, "dispatching command: `%s`", tokens[0]);
 
     if ( !tokens || count == 0 )
     {
-        ESP_LOGE(tag, "invalid args, count: `%zu`", count);
+        ESP_LOGE(TAG, "invalid args, count: `%zu`", count);
         return;
     }
 
@@ -151,7 +151,7 @@ dispatchCommand_(char** tokens, size_t count, char* response, size_t responseSiz
     {
         if (strcmp(tokens[0], commands_[i].name) == 0)
         {
-            commands_[i].handler(count, tokens, response, responseSize);
+            commands_[i].handler(commands_[i].context, count, tokens, response, responseSize);
             return;
         }
     }

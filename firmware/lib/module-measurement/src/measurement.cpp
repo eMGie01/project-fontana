@@ -12,7 +12,7 @@
 #include "measurement.hpp"
 
 void Meas::
-Write(int32_t code)
+write(int32_t code)
 {
     int32_t offCode = code - codeOffset_;
 
@@ -40,7 +40,7 @@ Write(int32_t code)
 }
 
 ErrStatus Meas::
-ReadFiltValue(int64_t& umHgFilt)
+readFiltVal(int64_t& umHgFilt)
 {
     if (codeCountPerUmHg_ == 0)
     {
@@ -51,7 +51,7 @@ ReadFiltValue(int64_t& umHgFilt)
 }
 
 ErrStatus Meas::
-ReadAvgValue(int64_t& umHgAvg)
+readAvgVal(int64_t& umHgAvg)
 {
     if (codeCountPerUmHg_ == 0)
     {
