@@ -1,8 +1,8 @@
 /**
  * @file main.cpp
- * @author Marek Gałeczka (eMGie01)
+ * @author Marek Galeczka (marek.galeczka@outlook.com)
  * @brief 
- * @version 0.1
+ * @version 0.2
  * @date 2026-04-24
  * 
  * @copyright Copyright (c) 2026
@@ -17,41 +17,41 @@
 #include "esp_err.h"
 #include "esp_log.h"
 
-#define MAX_INIT_COUNT 3
-
-// static const char * TAG = "MAIN";
+static constexpr int MAX_INIT_COUNT = 3; 
 
 extern "C" void
 app_main()
 {
-    // ESP_LOGI(TAG, "program started");
-
-
-    init_status_t st = INIT_ONGOING;
+    /**
+     * State machine for application runtime,
+     * after init complete with no errors,
+     * app should run endlessly ... (for now)
+     */
     int retries = 0;
-    while( INIT_DONE != st )
+    auto st = app_InitStatus::ONGOING;
+    while( app_InitStatus::DONE != st )
     {
         switch(st)
         {
-            case INIT_ONGOING:
-                st = app_init();
+            case app_InitStatus::ONGOING:
+                st = app_Init();
                 break;
-            case INIT_RESTART:
+            case app_InitStatus::RESTART:
                 if ( ++retries >= MAX_INIT_COUNT )
                 {
-                    st = INIT_FATAL;
+                    st = app_InitStatus::FATAL;
                     break;
                 }
                 else
                 {
-                    st = INIT_ONGOING;
+                    st = app_InitStatus::ONGOING;
                 }
                 break;
-            case INIT_FATAL:
+            case app_InitStatus::FATAL:
                 esp_restart();
                 break;
             default:
-                st = INIT_FATAL;
+                st = app_InitStatus::FATAL;
                 break;
         }
     }

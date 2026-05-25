@@ -11,15 +11,15 @@
 #ifndef APP_HPP
 #define APP_HPP
 
-typedef enum
+enum class app_InitStatus
 {
-    INIT_ONGOING = 0,
-    INIT_RESTART,
-    INIT_FATAL,
-    INIT_DONE
-} init_status_t;
+    ONGOING = 0,
+    RESTART,
+    FATAL,
+    DONE
+};
 
-init_status_t app_init();
-void app_deinit();
+app_InitStatus app_Init();
+void app_Deinit();
 
 #endif // APP_HPP
