@@ -4,6 +4,7 @@
 .vscode/settings.json
 .vscode/ipch
 .codex
+.agents
 
 build
 compile_commands.json
