@@ -197,11 +197,10 @@ drawSnapshot_(const Snapshot::Snap& snap)
         frac = (frac < 0) ? -frac : frac; 
         std::snprintf(buf, sizeof(buf), "AVG: %lld.%02lld", whole, frac);
         err = lcd_drawString(&lcd_, 15, 112, buf, LCD_COLOR_YELLOW, LCD_COLOR_BLACK, 2);
-    }
-    
-    if (err != ESP_OK)
-    {
-        return ErrStatus::FAIL;
+        if (err != ESP_OK)
+        {
+            return ErrStatus::FAIL;
+        }
     }
 
     std::snprintf(

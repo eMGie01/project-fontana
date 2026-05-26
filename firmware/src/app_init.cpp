@@ -55,7 +55,7 @@ app_Init()
     UiTask::Config uiCfg = {};
     uiCfg.stackSize = 4096;
     uiCfg.priority = 4;
-    uiCfg.updatePeriodMs = 500;
+    uiCfg.updatePeriodMs = 1000;
     
     ErrStatus st;
 
@@ -94,9 +94,26 @@ app_Init()
         return app_InitStatus::RESTART;
     }
 
-    cliTask.start();
-    measTask.start();
-    uiTask.start();
+    st = cliTask.start();
+    if (st != ErrStatus::OK)
+    {
+        ESP_LOGE("APP", "failed to start CLI task");
+        return app_InitStatus::RESTART;
+    }
+
+    st = measTask.start();
+    if (st != ErrStatus::OK)
+    {
+        ESP_LOGE("APP", "failed to start MEAS task");
+        return app_InitStatus::RESTART;
+    }
+
+    st = uiTask.start();
+    if (st != ErrStatus::OK)
+    {
+        ESP_LOGE("APP", "failed to start UI task");
+        return app_InitStatus::RESTART;
+    }
 
     return app_InitStatus::DONE;
 }

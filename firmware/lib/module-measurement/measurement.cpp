@@ -126,6 +126,10 @@ getIirShift()
 ErrStatus Meas::
 setAvgWindowSize(uint8_t size)
 {
+    if (size == 0)
+    {
+        return ErrStatus::INVAL;
+    }
     averageWindowSize_ = size;
     return ErrStatus::OK;
 }
