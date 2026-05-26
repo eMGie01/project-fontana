@@ -15,6 +15,7 @@
 #include "err_status.hpp"
 #include "measurement.hpp"
 #include "hx711.h"
+#include "snapshot.hpp"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -45,7 +46,7 @@ public:
     };
 
     // Class's Base funcitons
-    ErrStatus   init(Config cfg);
+    ErrStatus   init(Config cfg, Snapshot* snap);
     ErrStatus   start();
     ErrStatus   stop();
 
@@ -110,6 +111,7 @@ private:
 
     hx711_TypeDef   sensor_ = {};
     Meas            meas_;
+    Snapshot*       snap_;
     QueueHandle_t   eventQueue_ = nullptr;
 
 };

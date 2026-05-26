@@ -165,7 +165,7 @@ dataHandle_(size_t bytesAvailable)
             if (st == ErrStatus::OK && response[0] != '\0')
             {
                 int written = uart_write(uartFd_, response, std::strlen(response));
-                if (written == 0)
+                if (written <= 0)
                 {
                     continue;
                 }
