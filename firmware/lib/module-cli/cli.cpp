@@ -138,9 +138,7 @@ tokenizeLine_(char ** tokens)
 
 ErrStatus Cli::
 dispatchCommand_(char** tokens, size_t count, char* response, size_t responseSize)
-{   
-    ESP_LOGD(TAG, "dispatching command: `%s`", tokens[0]);
-
+{
     if ( !tokens || count == 0 )
     {
         ESP_LOGE(TAG, "invalid args, count: `%zu`", count);

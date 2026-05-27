@@ -40,7 +40,7 @@ write(int32_t code)
 }
 
 ErrStatus Meas::
-readFiltVal(int64_t& umHgFilt)
+readFiltVal(int64_t& umHgFilt) const
 {
     if (codeCountPerUmHg_ == 0)
     {
@@ -84,7 +84,7 @@ setCodeOffset(int32_t code)
 }
 
 int32_t Meas::
-getCodeOffset()
+getCodeOffset() const
 {
     return codeOffset_;
 }
@@ -101,7 +101,7 @@ setCodeCountsPerUmHg(int32_t countsPerUmHg)
 }
 
 int32_t Meas::
-getCodeCountsPerUmHg()
+getCodeCountsPerUmHg() const
 {
     return codeCountPerUmHg_;
 }
@@ -118,7 +118,7 @@ setIirShift(uint8_t shift)
 }
 
 uint8_t Meas::
-getIirShift()
+getIirShift() const
 {
     return iirShift_;
 }
@@ -135,7 +135,7 @@ setAvgWindowSize(uint8_t size)
 }
 
 uint8_t Meas::
-getAvgWindowSize()
+getAvgWindowSize() const
 {
     return averageWindowSize_;
 }

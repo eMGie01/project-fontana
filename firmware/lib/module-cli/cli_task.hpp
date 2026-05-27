@@ -3,7 +3,7 @@
 
 #include "err_status.hpp"
 #include "meas_task.hpp"
-#include "cli_api2.hpp"
+#include "cli_api.hpp"
 #include "cli.hpp"
 #include "uart.h"
 

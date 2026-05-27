@@ -45,12 +45,6 @@ extern "C" {
 
 extern const uint8_t font5x7[95][5];
 
-typedef enum
-{
-    LEFT = 0,
-    RIGHT = 1,
-} lcd_rot_t;
-
 typedef struct
 {
     spi_host_device_t   spi_host;

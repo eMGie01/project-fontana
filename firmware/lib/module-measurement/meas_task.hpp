@@ -51,11 +51,11 @@ public:
     ErrStatus   stop();
 
     // Public API
-    ErrStatus   reset();
-    ErrStatus   setOffset(int32_t offset);
-    ErrStatus   setCountsPerUmHg(int32_t counts);
-    ErrStatus   setIirShift(uint8_t shift);
-    ErrStatus   setAvgWindowSize(uint8_t avgwin);
+    ErrStatus   reset() override;
+    ErrStatus   setOffset(int32_t offset) override;
+    ErrStatus   setCountsPerUmHg(int32_t counts) override;
+    ErrStatus   setIirShift(uint8_t shift) override;
+    ErrStatus   setAvgWindowSize(uint8_t avgwin) override;
 
 private:
 

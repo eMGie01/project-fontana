@@ -11,7 +11,7 @@
 
 #include "app.hpp"
 #include "cli_task.hpp"
-#include "cli_meas_handler2.hpp"
+#include "cli_meas_handler.hpp"
 #include "meas_task.hpp"
 #include "snapshot.hpp"
 #include "ui_task.hpp"
@@ -40,13 +40,9 @@ app_Init()
 
     static CliTask cliTask;
     static MeasTask measTask;
-<<<<<<< HEAD
     static CliMeasCmdEntry cliMeasCmd(&measTask, &cliTask);
-=======
     static UiTask uiTask;
     static Snapshot snapshot;
-    static CliMeasCmdEntry measCliCmdEntry(&cliTask, &measTask);
->>>>>>> bd872d901b0a1e4c34a96b0f01b1e3c0155bde31
 
     CliTask::Config cliCfg = {};
     cliCfg.stackSize = 4096;
@@ -84,9 +80,6 @@ app_Init()
         return app_InitStatus::RESTART;
     }
 
-<<<<<<< HEAD
-    st = cliMeasCmd.cmdRegister();
-=======
     st = uiTask.init(uiCfg, &snapshot, &lcd_cfg);
     if (st != ErrStatus::OK)
     {
@@ -94,8 +87,7 @@ app_Init()
         return app_InitStatus::RESTART;
     }
 
-    st = measCliCmdEntry.cmdRegister();
->>>>>>> bd872d901b0a1e4c34a96b0f01b1e3c0155bde31
+    st = cliMeasCmd.cmdRegister();
     if (st != ErrStatus::OK)
     {
         ESP_LOGE("APP", "failed to register meas CLI commands");

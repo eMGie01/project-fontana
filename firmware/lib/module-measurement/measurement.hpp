@@ -53,7 +53,7 @@ public:
      *                      - ZERO_DIV if scale is set to 0, which is incorrect (clear error),
      *                      - OK
      */
-    ErrStatus readFiltVal(int64_t& umHgFilt);
+    ErrStatus readFiltVal(int64_t& umHgFilt) const;
 
     /**
      * @brief 
@@ -71,15 +71,17 @@ public:
      * @return ErrStatus
      */
     void setCodeOffset(int32_t code);
-    int32_t getCodeOffset();
+
+    int32_t getCodeOffset() const;
 
     /**
      * @brief Set the codeCountsPerUmHg_ object
      * @param code calculated value of scale stated by selected equation
      * @return ErrStatus
      */
-    ErrStatus setCodeCountsPerUmHg(int32_t code);
-    int32_t getCodeCountsPerUmHg();
+    ErrStatus setCodeCountsPerUmHg(int32_t countsPerUmHg);
+
+    int32_t getCodeCountsPerUmHg() const;
 
     /**
      * @brief Set the iirShift_ object
@@ -87,7 +89,8 @@ public:
      * @return ErrStatus
      */
     ErrStatus setIirShift(uint8_t shift);
-    uint8_t getIirShift();
+
+    uint8_t getIirShift() const;
 
     /**
      * @brief Set the avgWindowSize_ object
@@ -95,7 +98,8 @@ public:
      * @return ErrStatus
      */
     ErrStatus setAvgWindowSize(uint8_t size);
-    uint8_t getAvgWindowSize();
+
+    uint8_t getAvgWindowSize() const;
 
     /**
      * @brief reset() function used for reseting Meas Class settings

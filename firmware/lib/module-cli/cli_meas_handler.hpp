@@ -1,6 +1,6 @@
 #pragma once
 
-#include "cli_api2.hpp"
+#include "cli_api.hpp"
 #include "meas_task.hpp"
 
 class CliMeasCmdEntry : public CliCommandEntry
