@@ -33,7 +33,7 @@ write(int32_t code)
         return;
     }
 
-    codeAverage_ = codeAverageSum_ / (int64_t)averageIndexCount_;
+    codeAverage_ = codeAverageSum_ / static_cast<int64_t>(averageIndexCount_);
     codeAverageSum_ = 0;
     averageIndexCount_ = 0;
     averageValueReady_ = true;

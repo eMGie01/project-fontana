@@ -1,41 +1,26 @@
-#ifndef CLI_API_HPP
-#define CLI_API_HPP
+#pragma once
 
 #include "err_status.hpp"
-#include <stddef.h>
-
-class CliControlApi
-{
-public:
-    using CommandHandler = ErrStatus (*)(void* context, int argc, char**argv, char* response, size_t responseSize);
-    struct Command
-    {
-        const char*     name;
-        void*           context;
-        CommandHandler  handler;
-        const char*     help;
-    };
-    virtual ~CliControlApi() = default;
-    virtual ErrStatus registerCommand(const Command& entry) = 0;
-};
+#include <cstddef>
 
 class CliCommandEntry
 {
 public:
-    explicit CliCommandEntry(CliControlApi* cliApi)
-    : cliApi_(cliApi)
-    {}
     virtual ~CliCommandEntry() = default;
+    virtual ErrStatus execute(const char* subcommand, int argc, char** argv, char* response, size_t resSize) = 0;
     virtual ErrStatus cmdRegister() = 0;
-
-protected:
-    CliControlApi* cliApi()
-    {
-        return cliApi_;
-    }
-
-private:
-    CliControlApi* cliApi_;
 };
 
-#endif // CLI_API_HPP
+class CliControlApi
+{
+public:
+    struct Command
+    {
+        const char*         name;
+        CliCommandEntry*    entry;
+        const char*         help;
+    };
+    virtual ~CliControlApi() = default;
+    virtual ErrStatus registerCommand(const Command& entry) = 0;
+    static constexpr size_t MAX_COMMANDS = 32;
+};

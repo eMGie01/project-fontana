@@ -3,7 +3,7 @@
 
 #include "err_status.hpp"
 #include "meas_task.hpp"
-#include "cli_api.hpp"
+#include "cli_api2.hpp"
 #include "cli.hpp"
 #include "uart.h"
 
@@ -13,7 +13,7 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 
-#include <stdint.h>
+#include <cstdint>
 
 class CliTask : public CliControlApi
 {

@@ -21,7 +21,7 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 
-#include <stdint.h>
+#include <cstdint>
 
 class MeasControlApi
 {

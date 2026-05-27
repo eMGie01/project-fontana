@@ -12,7 +12,7 @@
 #ifndef CLI_HPP
 #define CLI_HPP
 
-#include "cli_api.hpp"
+#include "cli_api2.hpp"
 #include "err_status.hpp"
 #include <cstdio>
 
@@ -36,8 +36,8 @@ private:
 
     static constexpr char TAG[] = "CLI";
     
-    size_t  tokenizeLine_(char** tokens);
-    void    dispatchCommand_(char** tokens, size_t count, char* response, size_t responseSize);
+    size_t      tokenizeLine_(char** tokens);
+    ErrStatus   dispatchCommand_(char** tokens, size_t count, char* response, size_t responseSize);
 
     char    line_[LINE_BUF_SIZE] = {};
     size_t  pos_ = 0;

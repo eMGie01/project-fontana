@@ -73,7 +73,7 @@ execute(char* response, size_t responseSize)
 ErrStatus Cli::
 registerCmd(const CliControlApi::Command& entry)
 {
-    if (entry.name == nullptr || entry.handler == nullptr)
+    if (entry.name == nullptr || entry.entry == nullptr)
     {
         return ErrStatus::INVAL;
     }
@@ -136,7 +136,7 @@ tokenizeLine_(char ** tokens)
 }
 
 
-void Cli::
+ErrStatus Cli::
 dispatchCommand_(char** tokens, size_t count, char* response, size_t responseSize)
 {   
     ESP_LOGD(TAG, "dispatching command: `%s`", tokens[0]);
@@ -144,17 +144,22 @@ dispatchCommand_(char** tokens, size_t count, char* response, size_t responseSiz
     if ( !tokens || count == 0 )
     {
         ESP_LOGE(TAG, "invalid args, count: `%zu`", count);
-        return;
+        return ErrStatus::INVAL;
     }
 
+    const char* cmdName = tokens[0];
     for (size_t i = 0; i < commandCount_; ++i)
     {
-        if (strcmp(tokens[0], commands_[i].name) == 0)
+        if (std::strcmp(commands_[i].name, cmdName) == 0)
         {
-            commands_[i].handler(commands_[i].context, count, tokens, response, responseSize);
-            return;
+            const char* subcmd = (count > 1) ? tokens[1] : nullptr;
+            int argc = (count > 2) ? static_cast<int>(count) - 2 : 0;
+            char** argv = (argc > 0) ? &tokens[2] : nullptr;
+
+            return commands_[i].entry->execute(subcmd, argc, argv, response, responseSize);
         }
     }
-
-    snprintf(response, responseSize, "Unknown: %s\r\n", tokens[0]);
+    
+    snprintf(response, responseSize, "Unknown command: %s\r\n", cmdName);
+    return ErrStatus::INVAL;
 }

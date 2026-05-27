@@ -14,9 +14,8 @@
 
 #include "err_status.hpp"
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
+#include <cstddef>
+#include <cstdint>
 
 /**
  * @brief Main Meas Class body
