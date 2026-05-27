@@ -83,6 +83,12 @@ setCodeOffset(int32_t code)
     codeOffset_ = code;
 }
 
+int32_t Meas::
+getCodeOffset()
+{
+    return codeOffset_;
+}
+
 ErrStatus Meas::
 setCodeCountsPerUmHg(int32_t countsPerUmHg)
 {
@@ -92,6 +98,12 @@ setCodeCountsPerUmHg(int32_t countsPerUmHg)
     }
     codeCountPerUmHg_ = countsPerUmHg;
     return ErrStatus::OK;
+}
+
+int32_t Meas::
+getCodeCountsPerUmHg()
+{
+    return codeCountPerUmHg_;
 }
 
 ErrStatus Meas::
@@ -105,9 +117,25 @@ setIirShift(uint8_t shift)
     return ErrStatus::OK;
 }
 
+uint8_t Meas::
+getIirShift()
+{
+    return iirShift_;
+}
+
 ErrStatus Meas::
 setAvgWindowSize(uint8_t size)
 {
+    if (size == 0)
+    {
+        return ErrStatus::INVAL;
+    }
     averageWindowSize_ = size;
     return ErrStatus::OK;
+}
+
+uint8_t Meas::
+getAvgWindowSize()
+{
+    return averageWindowSize_;
 }

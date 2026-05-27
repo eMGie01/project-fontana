@@ -71,6 +71,7 @@ public:
      * @return ErrStatus
      */
     void setCodeOffset(int32_t code);
+    int32_t getCodeOffset();
 
     /**
      * @brief Set the codeCountsPerUmHg_ object
@@ -78,6 +79,7 @@ public:
      * @return ErrStatus
      */
     ErrStatus setCodeCountsPerUmHg(int32_t code);
+    int32_t getCodeCountsPerUmHg();
 
     /**
      * @brief Set the iirShift_ object
@@ -85,6 +87,7 @@ public:
      * @return ErrStatus
      */
     ErrStatus setIirShift(uint8_t shift);
+    uint8_t getIirShift();
 
     /**
      * @brief Set the avgWindowSize_ object
@@ -92,6 +95,7 @@ public:
      * @return ErrStatus
      */
     ErrStatus setAvgWindowSize(uint8_t size);
+    uint8_t getAvgWindowSize();
 
     /**
      * @brief reset() function used for reseting Meas Class settings

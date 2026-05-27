@@ -19,14 +19,22 @@ static constexpr char TAG[] = "MEAS_TASK";
 //
 
 ErrStatus MeasTask::
-init(Config cfg)
+init(Config cfg, Snapshot* snap)
 {
     if (initialized_ == true)
     {
         ESP_LOGE(TAG, "cannot initialize already running module %s", TAG);
         return ErrStatus::FAIL;
     }
+    
+    if (snap == nullptr)
+    {
+        ESP_LOGE(TAG, "snap is nullptr, cannot init task Meas");
+        return ErrStatus::INVAL;
+    }
+
     config_ = cfg;
+    snap_ = snap;
     eventQueue_ = xQueueCreate(8, sizeof(Event));
     if (eventQueue_ == nullptr)
     {
@@ -43,6 +51,12 @@ init(Config cfg)
     }
     initialized_ = true;
     ESP_LOGI(TAG, "task initialized successfully");
+
+    snap_->setOffset(meas_.getCodeOffset());
+    snap_->setCountsPerUmHg(meas_.getCodeCountsPerUmHg());
+    snap_->setIirShift(meas_.getIirShift());
+    snap_->setAvgWinSize(meas_.getAvgWindowSize());
+
     return ErrStatus::OK;
 }
 
@@ -218,6 +232,7 @@ handleCommand_(const Command& cmd)
     case CommandType::SET_OFFSET:
     {
         meas_.setCodeOffset(cmd.arg.codeOffset);
+        snap_->setOffset(cmd.arg.codeOffset);
         ESP_LOGI(TAG, "meas offset changed to: %ld", cmd.arg.codeOffset);
         break;
     }
@@ -229,6 +244,7 @@ handleCommand_(const Command& cmd)
             ESP_LOGW(TAG, "meas code_counts_per_umHg cannot be set to: %ld", cmd.arg.codeCountsPerUmHg);
             break;
         }
+        snap_->setCountsPerUmHg(cmd.arg.codeCountsPerUmHg);
         ESP_LOGI(TAG, "meas code_counts_per_umHg set to: %ld", cmd.arg.codeCountsPerUmHg);
         break;
     }
@@ -240,6 +256,7 @@ handleCommand_(const Command& cmd)
             ESP_LOGW(TAG, "meas iir_shift cannot be set to: %d", cmd.arg.iirShift);
             break;
         }
+        snap_->setIirShift(cmd.arg.iirShift);
         ESP_LOGI(TAG, "meas iir_shift set to: %d", cmd.arg.iirShift);
         break;
     }
@@ -251,6 +268,7 @@ handleCommand_(const Command& cmd)
             ESP_LOGW(TAG, "meas avgwin cannot be set to: %d", cmd.arg.avgWindowSize);
             break;
         }
+        snap_->setAvgWinSize(cmd.arg.avgWindowSize);
         ESP_LOGI(TAG, "meas avgwin set to: %d", cmd.arg.avgWindowSize);
         break;
     }
@@ -289,14 +307,16 @@ handleSensorReady_()
     if (response == ErrStatus::TIMEOUT)
     {
         /* for now i log with ESP_LOGX() just to check correctness of my code */
-        ESP_LOGI(TAG, "[%lld, %ld, %lld]", time, code, filtVal);
+        // ESP_LOGI(TAG, "[%lld, %ld, %lld]", time, code, filtVal);
         /* everything up to next comment will be deleted */
+        snap_->setMeas(time, code, filtVal, 0, false);
         return;
     }
     // save avg val to snapshot
     /* for now i log with ESP_LOGX() just to check correctness of my code */
-    ESP_LOGI(TAG, "[%lld, %ld, %lld, %lld]", time, code, filtVal, avgVal);
+    // ESP_LOGI(TAG, "[%lld, %ld, %lld, %lld]", time, code, filtVal, avgVal);
     /* everything up to next comment will be deleted */
+    snap_->setMeas(time, code, filtVal, avgVal, true);
 }
 
 //
