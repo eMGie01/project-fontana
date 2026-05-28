@@ -1,3 +1,14 @@
+/**
+ * @file cli_task.cpp
+ * @author Marek Galeczka (marek.galeczka@outlook.com)
+ * @brief 
+ * @version 0.3
+ * @date 2026-05-28
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
 #include "cli_task.hpp"
 
 #include <cstring>
@@ -156,12 +167,7 @@ dataHandle_(size_t bytesAvailable)
             }
 
             response[0] = '\0';
-            // if (cli_.execute(response, sizeof(response)) == ESP_OK && response[0] != '\0')
-            // {
-            //     uart_write(s_UartFd, response, std::strlen(response));
-            // }
             ErrStatus st = cli_.execute(response, sizeof(response));
-            // ESP_LOGD(TAG, "st=%d response='%s'", st, response);
             if (st == ErrStatus::OK && response[0] != '\0')
             {
                 int written = uart_write(uartFd_, response, std::strlen(response));

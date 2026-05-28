@@ -1,3 +1,14 @@
+/**
+ * @file cli_api.hpp
+ * @author Marek Galeczka (marek.galeczka@outlook.com)
+ * @brief 
+ * @version 0.1
+ * @date 2026-05-28
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
 #pragma once
 
 #include "err_status.hpp"

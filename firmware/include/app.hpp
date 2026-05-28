@@ -13,10 +13,10 @@
 
 enum class app_InitStatus
 {
-    ONGOING = 0,
+    ONGOING,
     RESTART,
     FATAL,
-    DONE
+    DONE,
 };
 
 app_InitStatus app_Init();

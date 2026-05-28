@@ -10,6 +10,7 @@
  */
 
 #include "cli.hpp"
+
 #include "esp_log.h"
 
 #include <cstring>

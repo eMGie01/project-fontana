@@ -1,3 +1,14 @@
+/**
+ * @file cli_meas_handler.hpp
+ * @author Marek Galeczka (marek.galeczka@outlook.com)
+ * @brief 
+ * @version 0.1
+ * @date 2026-05-28
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
 #pragma once
 
 #include "cli_api.hpp"
@@ -6,7 +17,7 @@
 class CliMeasCmdEntry : public CliCommandEntry
 {
 public:
-    explicit CliMeasCmdEntry(MeasControlApi* measApi, CliControlApi* cliApi)
+    explicit CliMeasCmdEntry(MeasControlApi& measApi, CliControlApi& cliApi)
     : measApi_(measApi)
     , cliApi_(cliApi)
     {}
@@ -15,8 +26,8 @@ public:
     ErrStatus cmdRegister() override;
 
 private:
-    MeasControlApi* measApi_;
-    CliControlApi* cliApi_;
+    MeasControlApi& measApi_;
+    CliControlApi& cliApi_;
 
     ErrStatus cmdMeas_(int argc, char** argv, char* resp, size_t size);
     ErrStatus cmdSetOffset_(int argc, char** argv, char* resp, size_t size);

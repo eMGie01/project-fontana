@@ -2,10 +2,11 @@
 #define CLI_TASK_HPP
 
 #include "err_status.hpp"
-#include "meas_task.hpp"
+#include "hw_config.h"
 #include "cli_api.hpp"
 #include "cli.hpp"
 #include "uart.h"
+#include "meas_task.hpp"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -38,9 +39,9 @@ private:
     void        dataHandle_(size_t bytesAvailable);
 
     static constexpr char        TAG[]          = "CLI_TASK";
-    static constexpr uart_port_t UART_PORT      = UART_NUM_0;
-    static constexpr gpio_num_t  UART_TX        = GPIO_NUM_16;
-    static constexpr gpio_num_t  UART_RX        = GPIO_NUM_17;
+    static constexpr uart_port_t UART_PORT      = CLI_UART_PORT;
+    static constexpr gpio_num_t  UART_TX        = CLI_UART_TX;
+    static constexpr gpio_num_t  UART_RX        = CLI_UART_RX;
     static constexpr size_t      TX_BUFF_SIZE   = 0;
     static constexpr size_t      RX_BUFF_SIZE    = 256;
 

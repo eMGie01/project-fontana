@@ -1,4 +1,16 @@
+/**
+ * @file cli_meas_handler.cpp
+ * @author Marek Galeczka (marek.galeczka@outlook.com)
+ * @brief 
+ * @version 0.1
+ * @date 2026-05-28
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
 #include "cli_meas_handler.hpp"
+
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
@@ -6,7 +18,7 @@
 ErrStatus CliMeasCmdEntry::
 cmdRegister()
 {
-    return cliApi_->registerCommand({"meas", this, "Measurement commands"});
+    return cliApi_.registerCommand({"meas", this, "Measurement commands"});
 }
 
 ErrStatus CliMeasCmdEntry::
@@ -60,7 +72,7 @@ cmdReset_(int argc, char** argv, char* resp, size_t size)
     (void)argc;
     (void)argv;
 
-    ErrStatus st = measApi_->reset();
+    ErrStatus st = measApi_.reset();
     if (st == ErrStatus::OK)
     {
         snprintf(resp, size, "Meas reset success\r\n");
@@ -83,7 +95,7 @@ cmdSetOffset_(int argc, char** argv, char* resp, size_t size)
     }
 
     int32_t value = std::atoi(argv[0]);
-    ErrStatus st = measApi_->setOffset(value);
+    ErrStatus st = measApi_.setOffset(value);
     if (st == ErrStatus::OK)
     {
         snprintf(resp, size, "Offset set to: %ld\r\n", static_cast<long>(value));
@@ -105,7 +117,7 @@ cmdSetIirShift_(int argc, char** argv, char* resp, size_t size)
     }
 
     uint8_t value = std::atoi(argv[0]);
-    ErrStatus st = measApi_->setIirShift(value);
+    ErrStatus st = measApi_.setIirShift(value);
     if (st == ErrStatus::OK)
     {
         snprintf(resp, size, "IIR shift set to: %d\r\n", value);
@@ -128,7 +140,7 @@ cmdSetCountsPerUmHg_(int argc, char** argv, char* resp, size_t size)
     }
 
     int32_t value = std::atoi(argv[0]);
-    ErrStatus st = measApi_->setCountsPerUmHg(value);
+    ErrStatus st = measApi_.setCountsPerUmHg(value);
     if (st == ErrStatus::OK)
     {
         snprintf(resp, size, "Counts per umHg set to: %ld\r\n", static_cast<long>(value));
@@ -151,7 +163,7 @@ cmdSetAvgWindow_(int argc, char** argv, char* resp, size_t size)
     }
 
     uint8_t value = std::atoi(argv[0]);
-    ErrStatus st = measApi_->setAvgWindowSize(value);
+    ErrStatus st = measApi_.setAvgWindowSize(value);
     if (st == ErrStatus::OK)
     {
         snprintf(resp, size, "Avg window size set to: %d\r\n", value);

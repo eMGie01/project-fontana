@@ -40,7 +40,7 @@ app_Init()
 
     static CliTask cliTask;
     static MeasTask measTask;
-    static CliMeasCmdEntry cliMeasCmd(&measTask, &cliTask);
+    static CliMeasCmdEntry cliMeasCmd(measTask, cliTask);
     static UiTask uiTask;
     static Snapshot snapshot;
 

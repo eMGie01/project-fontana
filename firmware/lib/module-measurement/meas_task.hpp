@@ -16,6 +16,7 @@
 #include "measurement.hpp"
 #include "hx711.h"
 #include "snapshot.hpp"
+#include "hw_config.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -101,8 +102,8 @@ private:
     void        handleCommand_(const Command& cmd);
     void        handleSensorReady_();
 
-    static constexpr gpio_num_t PIN_SCK      = GPIO_NUM_3;
-    static constexpr gpio_num_t PIN_DOUT     = GPIO_NUM_2;
+    static constexpr gpio_num_t PIN_SCK      = HX711_GPIO_SCK;
+    static constexpr gpio_num_t PIN_DOUT     = HX711_GPIO_DOUT;
     static constexpr uint8_t    SENSOR_MODE  = HX711_MODE_A128;
 
     Config          config_ = {};
@@ -111,7 +112,7 @@ private:
 
     hx711_TypeDef   sensor_ = {};
     Meas            meas_;
-    Snapshot*       snap_;
+    Snapshot*       snap_ = nullptr;
     QueueHandle_t   eventQueue_ = nullptr;
 
 };

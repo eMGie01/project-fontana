@@ -12,8 +12,9 @@
 #ifndef CLI_HPP
 #define CLI_HPP
 
-#include "cli_api.hpp"
 #include "err_status.hpp"
+#include "cli_api.hpp"
+
 #include <cstdio>
 
 /**
