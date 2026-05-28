@@ -20,6 +20,6 @@ enum class app_InitStatus
 };
 
 app_InitStatus app_Init();
-void app_Deinit();
+// void app_Deinit();
 
 #endif // APP_HPP
