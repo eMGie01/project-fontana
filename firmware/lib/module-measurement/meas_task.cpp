@@ -70,13 +70,21 @@ start()
     }
 
     BaseType_t taskRes = xTaskCreate(taskEntry_, "MEAS_TASK", config_.stackSize, this, config_.priority, &taskHandle_);
-    if (taskRes == pdTRUE)
+    if (taskRes != pdTRUE)
     {
-        ESP_LOGI(TAG, "task started successfully");
-        return ErrStatus::OK;
+        ESP_LOGE(TAG, "initialization of task failed");
+        return ErrStatus::FAIL;
     }
-    ESP_LOGE(TAG, "initialization of task failed");
-    return ErrStatus::FAIL;
+
+    hx711_StatusTypeDef sensorRes = hx711_Ioctl(&sensor_, HX711_IOCTL_INTR_EN, nullptr);
+    if (sensorRes != HX711_ERR_OK)
+    {
+        ESP_LOGE(TAG, "enabling hx711 interrupt failed");
+        return ErrStatus::FAIL;
+    }
+
+    ESP_LOGI(TAG, "task started successfully");
+    return ErrStatus::OK;
 }
 
 ErrStatus MeasTask::
@@ -86,7 +94,12 @@ stop()
     {
         return ErrStatus::OK;
     }
-
+    hx711_StatusTypeDef sensorRes = hx711_Ioctl(&sensor_, HX711_IOCTL_INTR_DIS, nullptr);
+    if (sensorRes != HX711_ERR_OK)
+    {
+        ESP_LOGE(TAG, "disabling hx711 interrupt failed");
+        return ErrStatus::FAIL;
+    }
     vTaskDelete(taskHandle_);
     taskHandle_ = nullptr;
     if (xQueueReset(eventQueue_) == pdFALSE)
