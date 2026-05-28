@@ -42,7 +42,7 @@ private:
     static constexpr gpio_num_t  UART_TX        = GPIO_NUM_16;
     static constexpr gpio_num_t  UART_RX        = GPIO_NUM_17;
     static constexpr size_t      TX_BUFF_SIZE   = 0;
-    static constexpr size_t      RX_BUFF_SZE    = 256;
+    static constexpr size_t      RX_BUFF_SIZE    = 256;
 
     Config          config_         = {};
     TaskHandle_t    taskHandle_     = nullptr;

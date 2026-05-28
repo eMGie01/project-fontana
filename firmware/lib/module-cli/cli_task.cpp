@@ -20,7 +20,7 @@ init(Config cfg)
     uartCfg.io_rx = UART_RX;
     uartCfg.baud = 115200;
     uartCfg.tx_buf_size = TX_BUFF_SIZE;
-    uartCfg.rx_buf_size = RX_BUFF_SZE;
+    uartCfg.rx_buf_size = RX_BUFF_SIZE;
 
     // Initializing connection with UART
     uartFd_ = uart_open(&uartCfg);
