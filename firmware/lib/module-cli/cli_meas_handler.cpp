@@ -76,13 +76,13 @@ cmdReset_(int argc, char** argv, char* resp, size_t size)
 ErrStatus CliMeasCmdEntry::
 cmdSetOffset_(int argc, char** argv, char* resp, size_t size)
 {
-    if (argc < 2)
+    if (argc < 1)
     {
         snprintf(resp, size, "Usage: set_offset <counts>\r\n");
         return ErrStatus::INVAL;
     }
 
-    int32_t value = std::atoi(argv[1]);
+    int32_t value = std::atoi(argv[0]);
     ErrStatus st = measApi_->setOffset(value);
     if (st == ErrStatus::OK)
     {
@@ -98,18 +98,19 @@ cmdSetOffset_(int argc, char** argv, char* resp, size_t size)
 ErrStatus CliMeasCmdEntry::
 cmdSetIirShift_(int argc, char** argv, char* resp, size_t size)
 {
-    if (argc < 2)
+    if (argc < 1)
     {
         snprintf(resp, size, "Usage: set_iir <shift>\r\n");
         return ErrStatus::INVAL;
     }
 
-    uint8_t value = std::atoi(argv[1]);
+    uint8_t value = std::atoi(argv[0]);
     ErrStatus st = measApi_->setIirShift(value);
     if (st == ErrStatus::OK)
     {
         snprintf(resp, size, "IIR shift set to: %d\r\n", value);
     }
+    else
     {
         snprintf(resp, size, "IIR shift error: %d\r\n", static_cast<int>(st));
     }
@@ -120,18 +121,19 @@ cmdSetIirShift_(int argc, char** argv, char* resp, size_t size)
 ErrStatus CliMeasCmdEntry::
 cmdSetCountsPerUmHg_(int argc, char** argv, char* resp, size_t size)
 {
-    if (argc < 2)
+    if (argc < 1)
     {
         snprintf(resp, size, "Usage: set_scale <counts>\r\n");
         return ErrStatus::INVAL;
     }
 
-    int32_t value = std::atoi(argv[1]);
+    int32_t value = std::atoi(argv[0]);
     ErrStatus st = measApi_->setCountsPerUmHg(value);
     if (st == ErrStatus::OK)
     {
         snprintf(resp, size, "Counts per umHg set to: %ld\r\n", static_cast<long>(value));
     }
+    else
     {
         snprintf(resp, size, "Counts per umHg error: %d\r\n", static_cast<int>(st));
     }
@@ -142,18 +144,19 @@ cmdSetCountsPerUmHg_(int argc, char** argv, char* resp, size_t size)
 ErrStatus CliMeasCmdEntry::
 cmdSetAvgWindow_(int argc, char** argv, char* resp, size_t size)
 {
-    if (argc < 2)
+    if (argc < 1)
     {
         snprintf(resp, size, "Usage: set_avgwin <size>\r\n");
         return ErrStatus::INVAL;
     }
 
-    uint8_t value = std::atoi(argv[1]);
+    uint8_t value = std::atoi(argv[0]);
     ErrStatus st = measApi_->setAvgWindowSize(value);
     if (st == ErrStatus::OK)
     {
         snprintf(resp, size, "Avg window size set to: %d\r\n", value);
     }
+    else
     {
         snprintf(resp, size, "Avg window size error: %d\r\n", static_cast<int>(st));
     }
