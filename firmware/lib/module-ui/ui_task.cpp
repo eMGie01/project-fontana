@@ -115,7 +115,7 @@ run_()
             (void)drawSnapshot_(snap);
             if (snap.avgLcd)
             {
-                (void)snapshot_->toggleAvgLcdFlag();
+                (void)snapshot_->cleanAvgLcdFlag();
             }
         }
         else

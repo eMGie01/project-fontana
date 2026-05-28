@@ -167,7 +167,7 @@ setIirShift(uint8_t shift)
 }
 
 ErrStatus Snapshot::
-toggleAvgLcdFlag()
+cleanAvgLcdFlag()
 {
     if (!initialized_ || mutex_ == nullptr)
     {
@@ -183,7 +183,7 @@ toggleAvgLcdFlag()
 }
 
 ErrStatus Snapshot::
-toggleAvgSdFlag()
+cleanAvgSdFlag()
 {
     if (!initialized_ || mutex_ == nullptr)
     {

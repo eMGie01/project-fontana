@@ -42,8 +42,8 @@ public:
     ErrStatus setCountsPerUmHg(int32_t counts);
     ErrStatus setAvgWinSize(uint8_t avgwin);
     ErrStatus setIirShift(uint8_t shift);
-    ErrStatus toggleAvgLcdFlag();
-    ErrStatus toggleAvgSdFlag();
+    ErrStatus cleanAvgLcdFlag();
+    ErrStatus cleanAvgSdFlag();
 
 private:
     Snap snapshot_;
