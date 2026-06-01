@@ -31,19 +31,18 @@ extern "C" {
 
 typedef struct
 {
-    bool format_if_mount_failed;
-    int max_nr_of_files;
-    size_t allocation_unit_size;
-    gpio_num_t io_miso;
-    gpio_num_t io_mosi;
-    gpio_num_t io_sclk;
-    gpio_num_t io_cs;
-    size_t max_transfer_sz;
-    
-
 } sd_mount_config_t;
 
-esp_err_t sd_init();
+typedef struct
+{
+    sdmmc_card_t* card;
+    char* mount_point;
+} sd_t;
+typedef sd_t* sd_handle_t;
+
+esp_err_t sd_mount(sd_handle_t sd, char* mp, spi_host_device_t host);
+esp_err_t sd_file_create(sd_handle_t sd, const char* file_name);
+esp_err_t sd_file_write();
 
 #ifdef __cplusplus
 }
