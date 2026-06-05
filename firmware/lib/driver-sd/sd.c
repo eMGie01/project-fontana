@@ -156,20 +156,6 @@ sd_file_create(sd_handle_t sd, const char* file_name)
     {
         return SD_ERR_INVAL_STATE;
     }
-    DIR* dir = opendir(sd->config.mount_point);
-    if (dir == NULL)
-    {
-        ESP_LOGE(TAG, "opendir failed");
-        return SD_ERR_WRITE_FAIL;
-    }
-
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != NULL)
-    {
-        ESP_LOGI(TAG, "%s %s",
-            entry->d_type == DT_DIR ? "[DIR]" : "[FILE]",
-            entry->d_name);
-    }
-    closedir(dir);
+    
     return SD_OK;
 }
