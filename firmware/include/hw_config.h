@@ -37,8 +37,9 @@
 #define LCD_RST         GPIO_NUM_21
 
 // SPI2
+#define SPI2_SCLK         GPIO_NUM_7
 #define SPI2_MISO         GPIO_NUM_5
 #define SPI2_MOSI         GPIO_NUM_6
-#define SPI2_SCLK         GPIO_NUM_7
+
 
 #endif // HW_CONFIG_H

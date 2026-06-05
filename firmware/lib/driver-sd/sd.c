@@ -60,19 +60,9 @@ sd_init(const sd_config_t* config, sd_handle_t sd)
         return SD_ERR_INVAL_ARG;
     }
 
-    sd->host = (sdmmc_host_t) SDSPI_HOST_DEFAULT();
+    sd->host = (sdmmc_host_t)SDSPI_HOST_DEFAULT();
     sd->host.slot = config->spi_host;
-    // sd->host.max_freq_khz = config->freq_khz;
     sd->host.max_freq_khz = SDMMC_FREQ_PROBING;
-    // sdspi_device_config_t dev_cfg = SDSPI_DEVICE_CONFIG_DEFAULT();
-    // dev_cfg.host_id = config->spi_host;
-    // dev_cfg.gpio_cs = config->pin_cs;
-    
-    // esp_err_t res = sdspi_host_init_device(&dev_cfg, &sd->host.slot);
-    // if (res != ESP_OK)
-    // {
-    //     return SD_ERR_INIT_FAIL;
-    // }
 
     sd->card = NULL;
     sd->mounted = false;
@@ -102,19 +92,19 @@ sd_mount(sd_handle_t sd)
         return SD_ERR_INVAL_STATE;
     }
 
+    sdspi_device_config_t dev_cfg = SDSPI_DEVICE_CONFIG_DEFAULT();
+    dev_cfg.host_id = sd->config.spi_host;
+    dev_cfg.gpio_cs = sd->config.pin_cs;
+
     esp_vfs_fat_sdmmc_mount_config_t mount_cfg = {
         .format_if_mount_failed = sd->config.format_if_mount_failed,
         .max_files = sd->config.max_files,
-        .allocation_unit_size = sd->config.allocation_unit_size,
     };
 
     esp_err_t err = esp_vfs_fat_sdspi_mount(
         sd->config.mount_point,
         &sd->host,
-        &(sdspi_device_config_t){
-            .host_id = sd->config.spi_host,
-            .gpio_cs = sd->config.pin_cs,
-        },
+        &dev_cfg,
         &mount_cfg,
         &sd->card
     );
@@ -160,26 +150,26 @@ sd_unmount(sd_handle_t sd)
 }
 
 sd_err_t
-sd_file_create(sd_handle_t sd)
+sd_file_create(sd_handle_t sd, const char* file_name)
 {
     if (!sd->mounted || sd->state != SD_STATE_MOUNTED)
     {
         return SD_ERR_INVAL_STATE;
     }
-    // DIR* dir = opendir(sd->config.mount_point);
-    // if (dir == NULL)
-    // {
-    //     ESP_LOGE(TAG, "opendir failed");
-    //     return SD_ERR_WRITE_FAIL;
-    // }
+    DIR* dir = opendir(sd->config.mount_point);
+    if (dir == NULL)
+    {
+        ESP_LOGE(TAG, "opendir failed");
+        return SD_ERR_WRITE_FAIL;
+    }
 
-    // struct dirent* entry;
-    // while ((entry = readdir(dir)) != NULL)
-    // {
-    //     ESP_LOGI(TAG, "%s %s",
-    //         entry->d_type == DT_DIR ? "[DIR]" : "[FILE]",
-    //         entry->d_name);
-    // }
-    // closedir(dir);
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        ESP_LOGI(TAG, "%s %s",
+            entry->d_type == DT_DIR ? "[DIR]" : "[FILE]",
+            entry->d_name);
+    }
+    closedir(dir);
     return SD_OK;
 }
