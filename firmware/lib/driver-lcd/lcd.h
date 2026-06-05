@@ -48,9 +48,6 @@ extern const uint8_t font5x7[95][5];
 typedef struct
 {
     spi_host_device_t   spi_host;
-    gpio_num_t          pin_sclk;
-    gpio_num_t          pin_mosi;
-    gpio_num_t          pin_miso;
     gpio_num_t          pin_cs;
     gpio_num_t          pin_dc;
     gpio_num_t          pin_rst;
@@ -72,7 +69,6 @@ typedef struct
     uint16_t                    width;
     uint16_t                    height;
     bool                        initialized;
-    bool                        spi_bus_owned;
 } lcd_t;
 
 typedef lcd_t* lcd_handle_t;

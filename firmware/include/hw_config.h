@@ -28,9 +28,17 @@
 #define CLI_UART_RX     GPIO_NUM_17
 
 // SD
-#define SD_MISO         GPIO_NUM_5
-#define SD_MOSI         GPIO_NUM_6
-#define SD_SCLK         GPIO_NUM_7
 #define SD_CS           GPIO_NUM_4
+
+// LCD
+#define LCD_CS          GPIO_NUM_14
+#define LCD_DC          GPIO_NUM_15
+#define LCD_BL          GPIO_NUM_22
+#define LCD_RST         GPIO_NUM_21
+
+// SPI2
+#define SPI2_MISO         GPIO_NUM_5
+#define SPI2_MOSI         GPIO_NUM_6
+#define SPI2_SCLK         GPIO_NUM_7
 
 #endif // HW_CONFIG_H

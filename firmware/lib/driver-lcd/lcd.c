@@ -60,29 +60,8 @@ lcd_open(lcd_handle_t lcd, const lcd_cfg_t* cfg)
     lcd->initialized = false;
     lcd->io = NULL;
     lcd->panel = NULL;
-    lcd->spi_bus_owned = false;
     lcd->pin_bl = GPIO_NUM_NC;
     lcd->spi_host = cfg->spi_host;
-
-    spi_bus_config_t buscfg = {
-        .sclk_io_num = cfg->pin_sclk,
-        .mosi_io_num = cfg->pin_mosi,
-        .miso_io_num = cfg->pin_miso,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-        .max_transfer_sz = cfg->width * 40 * sizeof(uint16_t),
-    };
-
-    esp_err_t err;
-    err = spi_bus_initialize(cfg->spi_host, &buscfg, SPI_DMA_CH_AUTO);
-    if (err == ESP_OK)
-    {
-        lcd->spi_bus_owned = true;
-    }
-    else if (err != ESP_ERR_INVALID_STATE)
-    {
-        return err;
-    }
 
     esp_lcd_panel_io_spi_config_t io_config = {
         .dc_gpio_num = cfg->pin_dc,
@@ -94,7 +73,7 @@ lcd_open(lcd_handle_t lcd, const lcd_cfg_t* cfg)
         .trans_queue_depth = 10,
     };
 
-    err = esp_lcd_new_panel_io_spi(cfg->spi_host, &io_config, &lcd->io);
+    esp_err_t err = esp_lcd_new_panel_io_spi(cfg->spi_host, &io_config, &lcd->io);
     if (err != ESP_OK)
     {
         lcd_close(lcd);
@@ -213,16 +192,6 @@ lcd_close(lcd_handle_t lcd)
             ret = err;
         }
         lcd->io = NULL;
-    }
-
-    if (lcd->spi_bus_owned)
-    {
-        esp_err_t err = spi_bus_free(lcd->spi_host);
-        if (ret == ESP_OK && err != ESP_OK)
-        {
-            ret = err;
-        }
-        lcd->spi_bus_owned = false;
     }
 
     lcd->initialized = false;

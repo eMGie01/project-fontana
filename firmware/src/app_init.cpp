@@ -15,6 +15,7 @@
 #include "meas_task.hpp"
 #include "snapshot.hpp"
 #include "ui_task.hpp"
+#include "sd.h"
 
 #include "lcd.h"
 
@@ -27,9 +28,47 @@
 
 extern lcd_cfg_t lcd_cfg;
 
+//
+
+#include "driver/sdspi_host.h"
+#include "esp_vfs_fat.h"
+#include "sdmmc_cmd.h"
+
+void
+temp()
+{
+    // sam bus
+    spi_bus_config_t bus = {};
+    bus.mosi_io_num = GPIO_NUM_6;
+    bus.miso_io_num = GPIO_NUM_5;
+    bus.sclk_io_num = GPIO_NUM_7;
+    bus.quadwp_io_num = -1;
+    bus.quadhd_io_num = -1;
+    bus.max_transfer_sz = 4000;
+    ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &bus, SPI_DMA_CH_AUTO));
+
+    // sam mount
+    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    host.slot = SPI2_HOST;
+    host.max_freq_khz = SDMMC_FREQ_PROBING;  // 400 kHz
+
+    sdspi_device_config_t dev = SDSPI_DEVICE_CONFIG_DEFAULT();
+    dev.host_id = SPI2_HOST;
+    dev.gpio_cs = GPIO_NUM_4;
+
+    esp_vfs_fat_sdmmc_mount_config_t mount_cfg = {};
+    mount_cfg.format_if_mount_failed = false;
+    mount_cfg.max_files = 5;
+
+    sdmmc_card_t* card = NULL;
+    esp_err_t err = esp_vfs_fat_sdspi_mount("/sdcard", &host, &dev, &mount_cfg, &card);
+    ESP_LOGI("TEST", "mount result: %s", esp_err_to_name(err));
+}
+
 app_InitStatus
 app_Init()
 {
+    //* to board_init 
     // Init global isr service
     esp_err_t err = gpio_install_isr_service(0);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
@@ -38,82 +77,118 @@ app_Init()
         return app_InitStatus::RESTART;
     }
 
-    static CliTask cliTask;
-    static MeasTask measTask;
-    static CliMeasCmdEntry cliMeasCmd(measTask, cliTask);
-    static UiTask uiTask;
-    static Snapshot snapshot;
+    temp();
 
-    CliTask::Config cliCfg = {};
-    cliCfg.stackSize = 4096;
-    cliCfg.priority = 5;
+    // Init SPI 2 HOST
+    // spi_bus_config_t buscfg = {};
+    // buscfg.sclk_io_num = SPI2_SCLK;
+    // buscfg.mosi_io_num = SPI2_MOSI;
+    // buscfg.miso_io_num = SPI2_MISO;
+    // buscfg.quadwp_io_num = -1;
+    // buscfg.quadhd_io_num = -1;
+    // buscfg.max_transfer_sz = 172 * 40 * sizeof(uint16_t);
 
-    MeasTask::Config measCfg = {};
-    measCfg.stackSize = 4096;
-    measCfg.priority = 6;
+    // err = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
+    // if (err != ESP_OK)
+    // {
+    //     ESP_LOGE("APP", "initialization of SPI2 failed");
+    //     return app_InitStatus::RESTART;
+    // }
 
-    UiTask::Config uiCfg = {};
-    uiCfg.stackSize = 4096;
-    uiCfg.priority = 4;
-    uiCfg.updatePeriodMs = 1000;
+    // //
+
+    // const sd_config_t sdCfg = SD_CONFIG_DEFAULT(SD_CS);
+    // sd_type_t sd = {};
+    // sd_err_t sdErr = sd_init(&sdCfg, &sd);
+    // if (sdErr != SD_OK)
+    // {
+    //     ESP_LOGE("APP", "sd error: %d", sdErr);
+    // }
+    // sd_mount(&sd);
+    // // sd_file_create(&sd);
+    // //
+
+    //* end board_init
+
+    // Init application classes
+    // static CliTask cliTask;
+    // static MeasTask measTask;
+    // static CliMeasCmdEntry cliMeasCmd(measTask, cliTask);
+    // static UiTask uiTask;
+    // static Snapshot snapshot;
+
+    // CliTask::Config cliCfg = {};
+    // cliCfg.stackSize = 4096;
+    // cliCfg.priority = 5;
+
+    // MeasTask::Config measCfg = {};
+    // measCfg.stackSize = 4096;
+    // measCfg.priority = 6;
+
+    // UiTask::Config uiCfg = {};
+    // uiCfg.stackSize = 4096;
+    // uiCfg.priority = 4;
+    // uiCfg.updatePeriodMs = 1000;
     
-    ErrStatus st;
+    // ErrStatus st;
 
-    st = snapshot.open();
-    if (st != ErrStatus::OK)
-    {
-        ESP_LOGE("APP", "failed to open snapshot");
-        return app_InitStatus::RESTART;
-    }
+    // st = snapshot.open();
+    // if (st != ErrStatus::OK)
+    // {
+    //     ESP_LOGE("APP", "failed to open snapshot");
+    //     return app_InitStatus::RESTART;
+    // }
 
-    st = cliTask.init(cliCfg);
-    if (st != ErrStatus::OK)
-    {
-        ESP_LOGE("APP", "failed to init cliTask");
-        return app_InitStatus::RESTART;
-    }
+    // st = cliTask.init(cliCfg);
+    // if (st != ErrStatus::OK)
+    // {
+    //     ESP_LOGE("APP", "failed to init cliTask");
+    //     return app_InitStatus::RESTART;
+    // }
 
-    st = measTask.init(measCfg, &snapshot);
-    if (st != ErrStatus::OK)
-    {
-        ESP_LOGE("APP", "failed to init measTask");
-        return app_InitStatus::RESTART;
-    }
+    // st = measTask.init(measCfg, &snapshot);
+    // if (st != ErrStatus::OK)
+    // {
+    //     ESP_LOGE("APP", "failed to init measTask");
+    //     return app_InitStatus::RESTART;
+    // }
 
-    st = uiTask.init(uiCfg, &snapshot, &lcd_cfg);
-    if (st != ErrStatus::OK)
-    {
-        ESP_LOGE("APP", "failed to init uiTask");
-        return app_InitStatus::RESTART;
-    }
+    // st = uiTask.init(uiCfg, &snapshot, &lcd_cfg);
+    // if (st != ErrStatus::OK)
+    // {
+    //     ESP_LOGE("APP", "failed to init uiTask");
+    //     return app_InitStatus::RESTART;
+    // }
 
-    st = cliMeasCmd.cmdRegister();
-    if (st != ErrStatus::OK)
-    {
-        ESP_LOGE("APP", "failed to register meas CLI commands");
-        return app_InitStatus::RESTART;
-    }
+    // st = cliMeasCmd.cmdRegister();
+    // if (st != ErrStatus::OK)
+    // {
+    //     ESP_LOGE("APP", "failed to register meas CLI commands");
+    //     return app_InitStatus::RESTART;
+    // }
 
-    st = cliTask.start();
-    if (st != ErrStatus::OK)
-    {
-        ESP_LOGE("APP", "failed to start CLI task");
-        return app_InitStatus::RESTART;
-    }
+    // st = cliTask.start();
+    // if (st != ErrStatus::OK)
+    // {
+    //     ESP_LOGE("APP", "failed to start CLI task");
+    //     return app_InitStatus::RESTART;
+    // }
 
-    st = measTask.start();
-    if (st != ErrStatus::OK)
-    {
-        ESP_LOGE("APP", "failed to start MEAS task");
-        return app_InitStatus::RESTART;
-    }
+    // st = measTask.start();
+    // if (st != ErrStatus::OK)
+    // {
+    //     ESP_LOGE("APP", "failed to start MEAS task");
+    //     return app_InitStatus::RESTART;
+    // }
 
-    st = uiTask.start();
-    if (st != ErrStatus::OK)
-    {
-        ESP_LOGE("APP", "failed to start UI task");
-        return app_InitStatus::RESTART;
-    }
+    // st = uiTask.start();
+    // if (st != ErrStatus::OK)
+    // {
+    //     ESP_LOGE("APP", "failed to start UI task");
+    //     return app_InitStatus::RESTART;
+    // }
+    
+
 
     return app_InitStatus::DONE;
 }

@@ -24,6 +24,18 @@ extern "C" {
 #include "driver/sdspi_host.h"
 #include "freertos/FreeRTOS.h"
 
+#define SD_CONFIG_DEFAULT(cs_pin) {            \
+    .mode = SD_MODE_NORMAL,                    \
+    .spi_host = SPI2_HOST,                     \
+    .pin_cs = (cs_pin),                        \
+    .mount_point = "/sdcard",                  \
+    .max_files = 5,                            \
+    .format_if_mount_failed = true,           \
+    .allocation_unit_size = 16 * 1024,         \
+    .freq_khz = SDMMC_FREQ_DEFAULT,            \
+    .use_pullups = false,                      \
+}
+
 typedef enum
 {
     SD_OK                   =  (0),
@@ -41,9 +53,9 @@ typedef enum
 
 typedef enum
 {
-    SD_STATE_INITED     = (0),
-    SD_STATE_MOUNTED    = (1),
-    SD_STATE_UNINIT     = (2),
+    SD_STATE_UNINIT     = (0),
+    SD_STATE_INITED     = (1),
+    SD_STATE_MOUNTED    = (2),
 } sd_state_t;
 
 typedef struct
@@ -76,6 +88,8 @@ sd_err_t sd_deinit(sd_handle_t sd);
 
 sd_err_t sd_mount(sd_handle_t sd);
 sd_err_t sd_unmount(sd_handle_t sd);
+
+sd_err_t sd_file_create(sd_handle_t sd);
 
 
 #ifdef __cplusplus

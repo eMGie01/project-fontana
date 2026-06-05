@@ -6,7 +6,6 @@
 
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
-// #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "sdmmc_cmd.h"
 #include "hw_config.h"
@@ -61,115 +60,126 @@ sd_init(const sd_config_t* config, sd_handle_t sd)
         return SD_ERR_INVAL_ARG;
     }
 
-    sd->host = SDSPI_DEFAULT_HOST();
+    sd->host = (sdmmc_host_t) SDSPI_HOST_DEFAULT();
     sd->host.slot = config->spi_host;
-    sd->host.max_freq_khz = config->freq_khz;
-    sdspi_device_config_t dev_cfg = SDSPI_DEVICE_CONFIG_DEFAULT();
-    dev_cfg.host_id = config->spi_host;
-    dev_cfg.gpio_cs = config->pin_cs;
+    // sd->host.max_freq_khz = config->freq_khz;
+    sd->host.max_freq_khz = SDMMC_FREQ_PROBING;
+    // sdspi_device_config_t dev_cfg = SDSPI_DEVICE_CONFIG_DEFAULT();
+    // dev_cfg.host_id = config->spi_host;
+    // dev_cfg.gpio_cs = config->pin_cs;
     
-    esp_err_t res = sdspi_host_init_device(&dev_cfg, &sd->host.slot);
-    if (res != ESP_OK)
-    {
-        return SD_ERR_INIT_FAIL;
-    }
+    // esp_err_t res = sdspi_host_init_device(&dev_cfg, &sd->host.slot);
+    // if (res != ESP_OK)
+    // {
+    //     return SD_ERR_INIT_FAIL;
+    // }
 
     sd->card = NULL;
     sd->mounted = false;
     sd->mutex = xSemaphoreCreateMutex();
     if (sd->mutex == NULL)
     {
-        sdspi_host_remove_device(&sd->host.slot);
+        sdspi_host_remove_device(sd->host.slot);
         return SD_ERR_INIT_FAIL;
     }
 
     memcpy(&sd->config, config, sizeof(sd_config_t));
-
+    sd->state = SD_STATE_INITED;
+    ESP_LOGI(TAG, "sd driver installed, cs=GPIO%d, host=%d", config->pin_cs, config->spi_host);
+    return SD_OK;
 }
 
-esp_err_t sd_mount(sd_handle_t sd, char* mp, spi_host_device_t host_id)
+sd_err_t
+sd_mount(sd_handle_t sd)
 {
-    if (sd == NULL || mp == NULL)
+    if (sd == NULL)
     {
-        return ESP_ERR_INVALID_ARG;
+        return SD_ERR_INVAL_ARG;
     }
-    esp_err_t err;
-    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-    host.slot = host_id;
-    sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
-    slot_config.gpio_cs = GPIO_NUM_4;
-    slot_config.host_id = host_id;
-    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-        .format_if_mount_failed = false,
-        .max_files = 32,
-        .allocation_unit_size = 16 * 1024,
+
+    if (sd->state != SD_STATE_INITED)
+    {
+        return SD_ERR_INVAL_STATE;
+    }
+
+    esp_vfs_fat_sdmmc_mount_config_t mount_cfg = {
+        .format_if_mount_failed = sd->config.format_if_mount_failed,
+        .max_files = sd->config.max_files,
+        .allocation_unit_size = sd->config.allocation_unit_size,
     };
-    sd->mount_point = mp;
-    err = esp_vfs_fat_sdspi_mount(sd->mount_point, &host, &slot_config, &mount_config, sd->card);
+
+    esp_err_t err = esp_vfs_fat_sdspi_mount(
+        sd->config.mount_point,
+        &sd->host,
+        &(sdspi_device_config_t){
+            .host_id = sd->config.spi_host,
+            .gpio_cs = sd->config.pin_cs,
+        },
+        &mount_cfg,
+        &sd->card
+    );
+
     if (err != ESP_OK)
     {
-        sd->card = NULL;
-        sd->mount_point == NULL;
-        return ESP_FAIL;
+        ESP_LOGE(TAG, "mount failed: %s", esp_err_to_name(err));
+        return SD_ERR_MOUNT_FAIL;
     }
-    return ESP_OK;
+
+    sd->mounted = true;
+    sd->state = SD_STATE_MOUNTED;
+    ESP_LOGI(TAG, "mounted at %s", sd->config.mount_point);
+    sdmmc_card_print_info(stdout, sd->card);
+    return SD_OK;
 }
 
-esp_err_t sd_file_create(sd_handle_t sd, char* file_name, char* file_path)
+sd_err_t
+sd_unmount(sd_handle_t sd)
 {
-    if (sd == NULL || sd->card == NULL || sd->mount_point == NULL)
+    if (sd == NULL)
     {
-        return ESP_ERR_INVALID_ARG;
+        return SD_ERR_INVAL_ARG;
     }
-    if (strlen(file_name) > 58)
+
+    if (sd->state != SD_STATE_MOUNTED)
     {
-        return ESP_ERR_INVALID_ARG;
+        return SD_ERR_INVAL_STATE;
     }
-    DIR* d = opendir(sd->mount_point);
-    struct dirent* dir;
-    int max_index = -1;
-    char buff[64] = {0};
-    snprintf(buff, sizeof(buff), "%s_%%d.csv", file_name);
-    if (d)
+
+    esp_err_t err = esp_vfs_fat_sdcard_unmount(sd->config.mount_point, sd->card);
+    if (err != ESP_OK)
     {
-        while((dir = readdir(d)) != NULL)
-        {
-            int index;
-            if (sscanf(dir->d_name, buff, &index) == 1)
-            {
-                max_index = index;
-            }
-        }
-        closedir(d);
+        ESP_LOGE(TAG, "unmount failed: %s", esp_err_to_name(err));
+        return SD_ERR_MOUNT_FAIL;
     }
-    else
-    {
-        ESP_LOGD(TAG, "cannot open file for dir: %s", sd->mount_point);
-    }
-    int next_index = (max_index == -1) ? 1 : (max_index + 1);
-    char path[128];
-    snprintf(path, sizeof(path), "%s/%s_%02d.csv", sd->mount_point, file_name, next_index);
-    FILE* f = fopen(path, "w");
-    if (f != NULL)
-    {
-        ESP_LOGD(TAG, "new file created in dir: %s", path);
-        fclose(f);
-        file_path = path;
-        return ESP_OK;
-    }
-    ESP_LOGD(TAG, "creating file with path: %s failed", path);
-    return ESP_FAIL;
+
+    sd->card = NULL;
+    sd->mounted = false;
+    sd->state = SD_STATE_INITED;
+    ESP_LOGI(TAG, "unmounted");
+    return SD_OK;
 }
 
-esp_err_t
-sd_file_write(sd_handle_t sd, char* file_path)
+sd_err_t
+sd_file_create(sd_handle_t sd)
 {
-    FILE* f = fopen(file_path, "w");
-    if (f == NULL)
+    if (!sd->mounted || sd->state != SD_STATE_MOUNTED)
     {
-        ESP_LOGD(TAG, "writing to file: %s failed", file_path);
+        return SD_ERR_INVAL_STATE;
     }
+    // DIR* dir = opendir(sd->config.mount_point);
+    // if (dir == NULL)
+    // {
+    //     ESP_LOGE(TAG, "opendir failed");
+    //     return SD_ERR_WRITE_FAIL;
+    // }
 
+    // struct dirent* entry;
+    // while ((entry = readdir(dir)) != NULL)
+    // {
+    //     ESP_LOGI(TAG, "%s %s",
+    //         entry->d_type == DT_DIR ? "[DIR]" : "[FILE]",
+    //         entry->d_name);
+    // }
+    // closedir(dir);
+    return SD_OK;
 }
-
-
