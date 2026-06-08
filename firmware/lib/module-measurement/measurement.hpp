@@ -14,7 +14,6 @@
 
 #include "err_status.hpp"
 
-#include <cstddef>
 #include <cstdint>
 
 /**
@@ -27,11 +26,11 @@ public:
     : codeOffset_(0)
     , codeCountPerUmHg_(1)
     , codeFilt_(0)
-    , iirShift_(1/*i have to change it*/)
+    , iirShift_(DEFAULT_IIR_SHIFT)
     , firstSample_(true)
     , codeAverage_(0)
     , codeAverageSum_(0)
-    , averageWindowSize_(64/*change it to default win size*/)
+    , averageWindowSize_(DEFAULT_AVG_WINDOW_SIZE)
     , averageIndexCount_(0)
     , averageValueReady_(false)
     {}
@@ -107,6 +106,9 @@ public:
     void reset();
 
 private:
+    static constexpr uint8_t DEFAULT_IIR_SHIFT = 1;
+    static constexpr uint8_t DEFAULT_AVG_WINDOW_SIZE = 64;
+
     int32_t codeOffset_;
     int32_t codeCountPerUmHg_;
 

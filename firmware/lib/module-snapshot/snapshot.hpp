@@ -19,7 +19,6 @@ public:
         int32_t codeCounts;
         uint8_t avgWin;
         uint8_t iirShift;
-        bool avgSD;
         bool avgLcd;
     };
 
@@ -43,7 +42,6 @@ public:
     ErrStatus setAvgWinSize(uint8_t avgwin);
     ErrStatus setIirShift(uint8_t shift);
     ErrStatus cleanAvgLcdFlag();
-    ErrStatus cleanAvgSdFlag();
 
 private:
     Snap snapshot_;

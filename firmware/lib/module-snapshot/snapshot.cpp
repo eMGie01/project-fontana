@@ -83,7 +83,6 @@ setMeas(uint64_t ms, int32_t code, int64_t filtered, int64_t averaged, bool avgF
     {
         snapshot_.averaged = averaged;
         snapshot_.avgLcd = true;
-        snapshot_.avgSD = true;
     }
 
     xSemaphoreGive(mutex_);
@@ -178,22 +177,6 @@ cleanAvgLcdFlag()
         return ErrStatus::TIMEOUT;
     }
     snapshot_.avgLcd = false;
-    xSemaphoreGive(mutex_);
-    return ErrStatus::OK;
-}
-
-ErrStatus Snapshot::
-cleanAvgSdFlag()
-{
-    if (!initialized_ || mutex_ == nullptr)
-    {
-        return ErrStatus::NODEV;
-    }
-    if (xSemaphoreTake(mutex_, portMAX_DELAY) != pdTRUE)
-    {
-        return ErrStatus::TIMEOUT;
-    }
-    snapshot_.avgSD = false;
     xSemaphoreGive(mutex_);
     return ErrStatus::OK;
 }

@@ -10,11 +10,19 @@
  */
 
 #include "meas_task.hpp"
+#include "sd_logger_task.hpp"
+#include "esp_err.h"
 #include "esp_log.h"
+#include "nvs.h"
 
 //
 
 static constexpr char TAG[] = "MEAS_TASK";
+static constexpr char NVS_NAMESPACE[] = "meas";
+static constexpr char NVS_KEY_OFFSET[] = "offset";
+static constexpr char NVS_KEY_COUNTS[] = "counts";
+static constexpr char NVS_KEY_IIR[] = "iir";
+static constexpr char NVS_KEY_AVGWIN[] = "avgwin";
 
 //
 
@@ -49,6 +57,9 @@ init(Config cfg, Snapshot* snap)
         eventQueue_ = nullptr;
         return ErrStatus::FAIL;
     }
+
+    loadConfig_();
+
     initialized_ = true;
     ESP_LOGI(TAG, "task initialized successfully");
 
@@ -57,6 +68,19 @@ init(Config cfg, Snapshot* snap)
     snap_->setIirShift(meas_.getIirShift());
     snap_->setAvgWinSize(meas_.getAvgWindowSize());
 
+    return ErrStatus::OK;
+}
+
+ErrStatus MeasTask::
+setSdLoggerTask(SdLoggerTask* sd_logger_task)
+{
+    if (sd_logger_task == nullptr)
+    {
+        ESP_LOGE(TAG, "sd_logger_task is nullptr");
+        return ErrStatus::INVAL;
+    }
+    sd_logger_task_ = sd_logger_task;
+    ESP_LOGI(TAG, "SdLoggerTask reference set");
     return ErrStatus::OK;
 }
 
@@ -231,6 +255,130 @@ sendCommand_(const Command& cmd)
 }
 
 void MeasTask::
+loadConfig_()
+{
+    nvs_handle_t nvs = 0;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs);
+    if (err == ESP_ERR_NVS_NOT_FOUND)
+    {
+        ESP_LOGI(TAG, "no stored measurement config, using defaults");
+        return;
+    }
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(TAG, "NVS open failed: %s", esp_err_to_name(err));
+        return;
+    }
+
+    int32_t offset = 0;
+    err = nvs_get_i32(nvs, NVS_KEY_OFFSET, &offset);
+    if (err == ESP_OK)
+    {
+        meas_.setCodeOffset(offset);
+    }
+    else if (err != ESP_ERR_NVS_NOT_FOUND)
+    {
+        ESP_LOGW(TAG, "NVS read offset failed: %s", esp_err_to_name(err));
+    }
+
+    int32_t counts = 0;
+    err = nvs_get_i32(nvs, NVS_KEY_COUNTS, &counts);
+    if (err == ESP_OK)
+    {
+        if (meas_.setCodeCountsPerUmHg(counts) != ErrStatus::OK)
+        {
+            ESP_LOGW(TAG, "stored counts value is invalid: %ld", counts);
+        }
+    }
+    else if (err != ESP_ERR_NVS_NOT_FOUND)
+    {
+        ESP_LOGW(TAG, "NVS read counts failed: %s", esp_err_to_name(err));
+    }
+
+    uint8_t iir = 0;
+    err = nvs_get_u8(nvs, NVS_KEY_IIR, &iir);
+    if (err == ESP_OK)
+    {
+        if (meas_.setIirShift(iir) != ErrStatus::OK)
+        {
+            ESP_LOGW(TAG, "stored iir value is invalid: %u", iir);
+        }
+    }
+    else if (err != ESP_ERR_NVS_NOT_FOUND)
+    {
+        ESP_LOGW(TAG, "NVS read iir failed: %s", esp_err_to_name(err));
+    }
+
+    uint8_t avgwin = 0;
+    err = nvs_get_u8(nvs, NVS_KEY_AVGWIN, &avgwin);
+    if (err == ESP_OK)
+    {
+        if (meas_.setAvgWindowSize(avgwin) != ErrStatus::OK)
+        {
+            ESP_LOGW(TAG, "stored avgwin value is invalid: %u", avgwin);
+        }
+    }
+    else if (err != ESP_ERR_NVS_NOT_FOUND)
+    {
+        ESP_LOGW(TAG, "NVS read avgwin failed: %s", esp_err_to_name(err));
+    }
+
+    nvs_close(nvs);
+    ESP_LOGI(TAG,
+             "measurement config loaded: offset=%ld counts=%ld iir=%u avgwin=%u",
+             meas_.getCodeOffset(),
+             meas_.getCodeCountsPerUmHg(),
+             meas_.getIirShift(),
+             meas_.getAvgWindowSize());
+}
+
+ErrStatus MeasTask::
+saveConfig_()
+{
+    nvs_handle_t nvs = 0;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "NVS open for write failed: %s", esp_err_to_name(err));
+        return ErrStatus::FAIL;
+    }
+
+    err = nvs_set_i32(nvs, NVS_KEY_OFFSET, meas_.getCodeOffset());
+    if (err == ESP_OK)
+    {
+        err = nvs_set_i32(nvs, NVS_KEY_COUNTS, meas_.getCodeCountsPerUmHg());
+    }
+    if (err == ESP_OK)
+    {
+        err = nvs_set_u8(nvs, NVS_KEY_IIR, meas_.getIirShift());
+    }
+    if (err == ESP_OK)
+    {
+        err = nvs_set_u8(nvs, NVS_KEY_AVGWIN, meas_.getAvgWindowSize());
+    }
+    if (err == ESP_OK)
+    {
+        err = nvs_commit(nvs);
+    }
+
+    nvs_close(nvs);
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "NVS save failed: %s", esp_err_to_name(err));
+        return ErrStatus::FAIL;
+    }
+
+    ESP_LOGI(TAG,
+             "measurement config saved: offset=%ld counts=%ld iir=%u avgwin=%u",
+             meas_.getCodeOffset(),
+             meas_.getCodeCountsPerUmHg(),
+             meas_.getIirShift(),
+             meas_.getAvgWindowSize());
+    return ErrStatus::OK;
+}
+
+void MeasTask::
 handleCommand_(const Command& cmd)
 {
     ErrStatus response;
@@ -246,6 +394,7 @@ handleCommand_(const Command& cmd)
     {
         meas_.setCodeOffset(cmd.arg.codeOffset);
         snap_->setOffset(cmd.arg.codeOffset);
+        (void)saveConfig_();
         ESP_LOGI(TAG, "meas offset changed to: %ld", cmd.arg.codeOffset);
         break;
     }
@@ -258,6 +407,7 @@ handleCommand_(const Command& cmd)
             break;
         }
         snap_->setCountsPerUmHg(cmd.arg.codeCountsPerUmHg);
+        (void)saveConfig_();
         ESP_LOGI(TAG, "meas code_counts_per_umHg set to: %ld", cmd.arg.codeCountsPerUmHg);
         break;
     }
@@ -270,6 +420,7 @@ handleCommand_(const Command& cmd)
             break;
         }
         snap_->setIirShift(cmd.arg.iirShift);
+        (void)saveConfig_();
         ESP_LOGI(TAG, "meas iir_shift set to: %d", cmd.arg.iirShift);
         break;
     }
@@ -282,6 +433,7 @@ handleCommand_(const Command& cmd)
             break;
         }
         snap_->setAvgWinSize(cmd.arg.avgWindowSize);
+        (void)saveConfig_();
         ESP_LOGI(TAG, "meas avgwin set to: %d", cmd.arg.avgWindowSize);
         break;
     }
@@ -319,17 +471,31 @@ handleSensorReady_()
     response = meas_.readAvgVal(avgVal);
     if (response == ErrStatus::TIMEOUT)
     {
-        /* for now i log with ESP_LOGX() just to check correctness of my code */
-        // ESP_LOGI(TAG, "[%lld, %ld, %lld]", time, code, filtVal);
-        /* everything up to next comment will be deleted */
         snap_->setMeas(time, code, filtVal, 0, false);
+
+        if (sd_logger_task_ != nullptr)
+        {
+            Snapshot::Snap snap = {};
+            if (snap_->read(snap) == ErrStatus::OK)
+            {
+                sd_logger_task_->sendMeasurement(snap);
+            }
+        }
+
         return;
     }
-    // save avg val to snapshot
-    /* for now i log with ESP_LOGX() just to check correctness of my code */
-    // ESP_LOGI(TAG, "[%lld, %ld, %lld, %lld]", time, code, filtVal, avgVal);
-    /* everything up to next comment will be deleted */
+
     snap_->setMeas(time, code, filtVal, avgVal, true);
+    
+    // Send measurement to SD logger task if available
+    if (sd_logger_task_ != nullptr)
+    {
+        Snapshot::Snap snap = {};
+        if (snap_->read(snap) == ErrStatus::OK)
+        {
+            sd_logger_task_->sendMeasurement(snap);
+        }
+    }
 }
 
 //

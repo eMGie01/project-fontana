@@ -62,7 +62,6 @@ execute(const char* subcommand, int argc, char** argv, char* response, size_t re
         return cmdSetCountsPerUmHg_(argc, argv, response, resSize);
     }
 
-    // log smth
     return ErrStatus::INVAL;
 }
 

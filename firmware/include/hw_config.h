@@ -41,5 +41,7 @@
 #define SPI2_MISO         GPIO_NUM_5
 #define SPI2_MOSI         GPIO_NUM_6
 
+// button
+#define BUTTON_SD_PIN     GPIO_NUM_9
 
 #endif // HW_CONFIG_H

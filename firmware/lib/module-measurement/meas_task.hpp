@@ -25,6 +25,9 @@
 
 #include <cstdint>
 
+// Forward declarations
+class SdLoggerTask;
+
 class MeasControlApi
 {
 public:
@@ -46,8 +49,8 @@ public:
         UBaseType_t priority;
     };
 
-    // Class's Base funcitons
     ErrStatus   init(Config cfg, Snapshot* snap);
+    ErrStatus   setSdLoggerTask(class SdLoggerTask* sd_logger_task);
     ErrStatus   start();
     ErrStatus   stop();
 
@@ -101,6 +104,8 @@ private:
     ErrStatus   sendCommand_(const Command& cmd);
     void        handleCommand_(const Command& cmd);
     void        handleSensorReady_();
+    void        loadConfig_();
+    ErrStatus   saveConfig_();
 
     static constexpr gpio_num_t PIN_SCK      = HX711_GPIO_SCK;
     static constexpr gpio_num_t PIN_DOUT     = HX711_GPIO_DOUT;
@@ -113,6 +118,7 @@ private:
     hx711_TypeDef   sensor_ = {};
     Meas            meas_;
     Snapshot*       snap_ = nullptr;
+    class SdLoggerTask* sd_logger_task_ = nullptr;
     QueueHandle_t   eventQueue_ = nullptr;
 
 };

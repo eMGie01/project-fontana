@@ -12,21 +12,13 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/gpio.h"
-#include "driver/uart.h"
-#include "esp_err.h"
-#include "esp_log.h"
+#include "esp_system.h"
 
 static constexpr int MAX_INIT_COUNT = 3; 
 
 extern "C" void
 app_main()
 {
-    /**
-     * State machine for application runtime,
-     * after init complete with no errors,
-     * app should run endlessly ... (for now)
-     */
     int retries = 0;
     auto st = app_InitStatus::ONGOING;
     while( app_InitStatus::DONE != st )
