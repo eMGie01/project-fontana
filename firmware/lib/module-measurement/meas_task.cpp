@@ -454,6 +454,7 @@ handleSensorReady_()
     int32_t code;
     int64_t filtVal = 0;
     int64_t avgVal = 0;
+    // test
     
     sensorResponse = hx711_Read(&sensor_, &code);
     if (sensorResponse != HX711_ERR_OK)
