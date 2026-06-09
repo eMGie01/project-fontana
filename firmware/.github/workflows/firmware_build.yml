@@ -1,0 +1,50 @@
+name: Firmware build
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "firmware/**"
+      - ".github/workflows/firmware-build.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "firmware/**"
+      - ".github/workflows/firmware-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build PlatformIO firmware
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: firmware
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: ${{ runner.os }}-platformio-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade platformio
+
+      - name: Build firmware
+        run: pio run -e esp32-c6-devkitm-1
