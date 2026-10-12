@@ -454,7 +454,6 @@ handleSensorReady_()
     int32_t code;
     int64_t filtVal = 0;
     int64_t avgVal = 0;
-    // test
     
     sensorResponse = hx711_Read(&sensor_, &code);
     if (sensorResponse != HX711_ERR_OK)
@@ -483,6 +482,7 @@ handleSensorReady_()
             }
         }
 
+        ESP_LOGI(TAG, "CODE:%ld,FILTERED:%lld,AVERAGED:NRDY", code, filtVal);
         return;
     }
 
@@ -497,6 +497,7 @@ handleSensorReady_()
             sd_logger_task_->sendMeasurement(snap);
         }
     }
+    ESP_LOGI(TAG, "CODE:%ld,FILTERED:%lld,AVERAGED:%lld", code, filtVal, avgVal);
 }
 
 //
